@@ -5,15 +5,14 @@ use std::net::AddrParseError;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ErrorKind {
-    EmptyStream,
     MissingProxy,
     InvalidHeader,
     MissingProtocolFamily,
-    InvalidLayer3AddressFormat,
-    InvalidSourceAddress,
-    InvalidDestinationAddress,
-    InvalidSourcePort,
-    InvalidDestinationPort,
+    InvalidProtocolFamily,
+    MissingSourceAddress,
+    MissingDestinationAddress,
+    MissingSourcePort,
+    MissingDestinationPort,
     InvalidAddress,
     MissingCRLF,
     IoError,
@@ -52,13 +51,13 @@ impl From<io::Error> for Error {
 }
 
 impl From<Utf8Error> for Error {
-    fn from(error: Utf8Error) -> Self {
+    fn from(_error: Utf8Error) -> Self {
         Error { kind: InvalidEncoding, cause: None }
     }
 }
 
 impl From<AddrParseError> for Error {
-    fn from(error: AddrParseError) -> Self {
+    fn from(_error: AddrParseError) -> Self {
         Error { kind: InvalidAddress, cause: None }
     }
 }
