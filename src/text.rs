@@ -85,10 +85,18 @@ impl Parser for Header {
             None => Err(Error::from(MissingSourcePort))
         }?;
 
+        if source_port.starts_with("0") {
+            return Err(Error::from(InvalidPort));
+        }
+
         let destination_port = match parts.next() {
             Some(part) => Ok(part.to_string()),
             None => Err(Error::from(MissingDestinationPort))
         }?;
+
+        if destination_port.starts_with("0") {
+            return Err(Error::from(InvalidPort));
+        }
 
         if let Some(_) = parts.next() {
             return Err(Error::from(InvalidHeader));
@@ -130,6 +138,20 @@ mod tests {
         };
 
         assert_eq!(Header::parse(&mut text).unwrap(), expected);
+    }
+
+    #[test]
+    fn parse_leading_zeroes_in_source_port() {
+        let mut text = "PROXY TCP4 255.255.255.255 255.255.255.255 05535 65535\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidPort));
+    }
+
+    #[test]
+    fn parse_leading_zeroes_in_destination_port() {
+        let mut text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 05535\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidPort));
     }
 
     #[test]

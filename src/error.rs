@@ -14,6 +14,7 @@ pub enum ErrorKind {
     MissingSourcePort,
     MissingDestinationPort,
     InvalidAddress,
+    InvalidPort,
     MissingCRLF,
     IoError,
     InvalidEncoding
