@@ -1,3 +1,7 @@
+mod bytes;
+mod text;
+mod binary;
+
 #[cfg(test)]
 mod tests {
     #[test]
