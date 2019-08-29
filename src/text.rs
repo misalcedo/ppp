@@ -39,10 +39,12 @@ impl Parser for Header {
         let mut buffer: [u8; 108] = [0; 108];
         let result = stream.read(&mut buffer)?;
         let header = std::str::from_utf8(&buffer[..result])?;
-        let mut parts = header.split_ascii_whitespace();
+        let mut parts = header.trim_end_matches(CRLF).split(' ');
 
         match parts.next() {
+            Some("") => Err(Error::from(MissingProxy)),
             Some(part) => {
+                println!("Proxy: '{}'", part);
                 if PROXY.eq_ignore_ascii_case(part) {
                     Ok(())
                 } else {
@@ -168,5 +170,47 @@ mod tests {
         let mut text =  "PROXY UNKNOWN ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535  \r\n".as_bytes();
 
         assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(MissingCRLF));
+    }
+
+    #[test]
+    fn parse_more_than_one_space() {
+        let mut text = "PROXY  TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidProtocolFamily));
+    }
+
+    #[test]
+    fn parse_more_than_one_space_source_address() {
+        let mut text = "PROXY TCP4  255.255.255.255 255.255.255.255 65535 65535\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidHeader));
+    }
+
+    #[test]
+    fn parse_more_than_one_space_destination_address() {
+        let mut text = "PROXY TCP4 255.255.255.255  255.255.255.255 65535 65535\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidHeader));
+    }
+
+    #[test]
+    fn parse_more_than_one_space_source_port() {
+        let mut text = "PROXY TCP4 255.255.255.255 255.255.255.255  65535 65535\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidHeader));
+    }
+
+    #[test]
+    fn parse_more_than_one_space_destination_port() {
+        let mut text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535  65535\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidHeader));
+    }
+
+    #[test]
+    fn parse_more_than_one_space_end() {
+        let mut text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535 \r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidHeader));
     }
 }
