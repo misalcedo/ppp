@@ -21,6 +21,18 @@ struct Header {
     destination_port: String
 }
 
+impl Header {
+    fn unknown() -> Header {
+        Header {
+            protocol_family: String::from("UNKNOWN"),
+            source_address: String::from(""),
+            source_port: String::from(""),
+            destination_address: String::from(""),
+            destination_port: String::from("")
+        }
+    }
+}
+
 impl Parser for Header {
     /// See https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
     fn parse(stream: &mut dyn Read) -> Result<Header, Error> {
@@ -40,6 +52,10 @@ impl Parser for Header {
             None => Err(Error::from(MissingProxy))
         }?;
 
+        if !header.ends_with(CRLF) {
+            return Err(Error::from(MissingCRLF));
+        }
+
         let protocol_family = match parts.next() {
             Some(part) => {
                 if TCP4.eq_ignore_ascii_case(part) || TCP6.eq_ignore_ascii_case(part) || UNKNOWN.eq_ignore_ascii_case(part) {
@@ -51,56 +67,32 @@ impl Parser for Header {
             None => Err(Error::from(MissingProtocolFamily))
         }?;
 
+        if UNKNOWN.eq_ignore_ascii_case(&protocol_family) {
+            return Ok(Header::unknown())
+        }
+
         let source_address = match parts.next() {
             Some(part) => Ok(part.to_string()),
-            None => {
-                if UNKNOWN.eq_ignore_ascii_case(&protocol_family) {
-                    Ok(String::from(""))
-                } else {
-                    Err(Error::from(MissingSourceAddress))
-                }
-            }
+            None => Err(Error::from(MissingSourceAddress))
         }?;
 
         let destination_address = match parts.next() {
             Some(part) => Ok(part.to_string()),
-            None => {
-                if UNKNOWN.eq_ignore_ascii_case(&protocol_family) {
-                    Ok(String::from(""))
-                } else {
-                    Err(Error::from(MissingDestinationAddress))
-                }
-            }
+            None => Err(Error::from(MissingDestinationAddress))
         }?;
 
         let source_port = match parts.next() {
             Some(part) => Ok(part.to_string()),
-            None => {
-                if UNKNOWN.eq_ignore_ascii_case(&protocol_family) {
-                    Ok(String::from(""))
-                } else {
-                    Err(Error::from(MissingSourcePort))
-                }
-            }
+            None => Err(Error::from(MissingSourcePort))
         }?;
 
         let destination_port = match parts.next() {
             Some(part) => Ok(part.to_string()),
-            None => {
-                if UNKNOWN.eq_ignore_ascii_case(&protocol_family) {
-                    Ok(String::from(""))
-                } else {
-                    Err(Error::from(MissingDestinationPort))
-                }
-            }
+            None => Err(Error::from(MissingDestinationPort))
         }?;
 
         if let Some(_) = parts.next() {
             return Err(Error::from(InvalidHeader));
-        }
-
-        if !header.ends_with(CRLF) {
-            return Err(Error::from(MissingCRLF));
         }
 
         Ok(Header {
@@ -158,13 +150,7 @@ mod tests {
     #[test]
     fn parse_unknown_connection() {
         let mut text = "PROXY UNKNOWN\r\n".as_bytes();
-        let expected = Header {
-            protocol_family: String::from("UNKNOWN"),
-            source_address: String::from(""),
-            source_port: String::from(""),
-            destination_address: String::from(""),
-            destination_port: String::from("")
-        };
+        let expected = Header::unknown();
 
         assert_eq!(Header::parse(&mut text).unwrap(), expected);
     }
@@ -172,13 +158,7 @@ mod tests {
     #[test]
     fn parse_worst_case() {
         let mut text = "PROXY UNKNOWN ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
-        let expected = Header {
-            protocol_family: String::from("UNKNOWN"),
-            source_address: String::from("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
-            source_port: String::from("65535"),
-            destination_address: String::from("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
-            destination_port: String::from("65535")
-        };
+        let expected = Header::unknown();
 
         assert_eq!(Header::parse(&mut text).unwrap(), expected);
     }
