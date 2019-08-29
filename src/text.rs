@@ -13,23 +13,20 @@ const TCP6: &str = "TCP6";
 const UNKNOWN: &str = "UNKNOWN";
 
 #[derive(Debug, Eq, PartialEq)]
-struct Header {
-    protocol_family: String,
-    source_address: String,
-    source_port: String,
-    destination_address: String,
-    destination_port: String
-}
+enum Header {
+    TCP {
+        protocol_family: String,
+        source_address: String,
+        source_port: String,
+        destination_address: String,
+        destination_port: String
+    },
+    Unknown
+} 
 
 impl Header {
     fn unknown() -> Header {
-        Header {
-            protocol_family: String::from("UNKNOWN"),
-            source_address: String::from(""),
-            source_port: String::from(""),
-            destination_address: String::from(""),
-            destination_port: String::from("")
-        }
+        Header::Unknown {}
     }
 }
 
@@ -97,7 +94,7 @@ impl Parser for Header {
             return Err(Error::from(InvalidHeader));
         }
 
-        Ok(Header {
+        Ok(Header::TCP {
             protocol_family: protocol_family.to_string(), 
             source_address: source_address.to_string(), 
             source_port: source_port.to_string(),
@@ -124,7 +121,7 @@ mod tests {
     #[test]
     fn parse_tcp4() {
         let mut text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n".as_bytes();
-        let expected = Header {
+        let expected = Header::TCP {
             protocol_family: String::from("TCP4"),
             source_address: String::from("255.255.255.255"),
             source_port: String::from("65535"),
@@ -138,7 +135,7 @@ mod tests {
     #[test]
     fn parse_tcp6() {
         let mut text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
-        let expected = Header {
+        let expected = Header::TCP {
             protocol_family: String::from("TCP6"),
             source_address: String::from("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
             source_port: String::from("65535"),
