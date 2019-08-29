@@ -17,9 +17,9 @@ enum Header {
     TCP {
         protocol_family: String,
         source_address: String,
-        source_port: String,
+        source_port: u16,
         destination_address: String,
-        destination_port: String
+        destination_port: u16
     },
     Unknown
 } 
@@ -98,16 +98,18 @@ impl Parser for Header {
             return Err(Error::from(InvalidPort));
         }
 
+        
+
         if let Some(_) = parts.next() {
             return Err(Error::from(InvalidHeader));
         }
 
         Ok(Header::TCP {
-            protocol_family: protocol_family.to_string(), 
-            source_address: source_address.to_string(), 
-            source_port: source_port.to_string(),
-            destination_address: destination_address.to_string(), 
-            destination_port: destination_port.to_string()
+            protocol_family: protocol_family, 
+            source_address: source_address, 
+            source_port: source_port.parse::<u16>()?,
+            destination_address: destination_address, 
+            destination_port: destination_port.parse::<u16>()?
         })
     }
 }
@@ -132,9 +134,9 @@ mod tests {
         let expected = Header::TCP {
             protocol_family: String::from("TCP4"),
             source_address: String::from("255.255.255.255"),
-            source_port: String::from("65535"),
+            source_port: 65535,
             destination_address: String::from("255.255.255.255"),
-            destination_port: String::from("65535")
+            destination_port: 65535
         };
 
         assert_eq!(Header::parse(&mut text).unwrap(), expected);
@@ -160,12 +162,26 @@ mod tests {
         let expected = Header::TCP {
             protocol_family: String::from("TCP6"),
             source_address: String::from("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
-            source_port: String::from("65535"),
+            source_port: 65535,
             destination_address: String::from("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
-            destination_port: String::from("65535")
+            destination_port: 65535
         };
 
         assert_eq!(Header::parse(&mut text).unwrap(), expected);
+    }
+
+    #[test]
+    fn parse_source_port_too_large() {
+        let mut text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65536 65535\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidPort));
+    }
+
+    #[test]
+    fn parse_destination_port_too_large() {
+        let mut text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65536\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidPort));
     }
 
     #[test]

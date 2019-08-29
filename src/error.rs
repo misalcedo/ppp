@@ -1,6 +1,7 @@
-use crate::error::ErrorKind::{IoError, InvalidEncoding, InvalidAddress};
+use crate::error::ErrorKind::*;
 use std::io;
 use std::str::Utf8Error;
+use std::num::ParseIntError;
 use std::net::AddrParseError;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -60,6 +61,12 @@ impl From<Utf8Error> for Error {
 impl From<AddrParseError> for Error {
     fn from(_error: AddrParseError) -> Self {
         Error { kind: InvalidAddress, cause: None }
+    }
+}
+
+impl From<ParseIntError> for Error {
+    fn from(_error: ParseIntError) -> Self {
+        Error { kind: InvalidPort, cause: None }
     }
 }
 
