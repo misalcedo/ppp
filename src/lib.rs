@@ -1,6 +1,6 @@
-mod bytes;
 mod text;
 mod binary;
+mod error;
 
 #[cfg(test)]
 mod tests {
