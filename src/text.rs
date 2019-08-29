@@ -42,7 +42,7 @@ impl Parser for Header {
             Some("") => Err(Error::from(MissingProxy)),
             Some(part) => {
                 println!("Proxy: '{}'", part);
-                if PROXY.eq_ignore_ascii_case(part) {
+                if PROXY == part {
                     Ok(())
                 } else {
                     Err(Error::from(InvalidHeader))
@@ -57,7 +57,7 @@ impl Parser for Header {
 
         let protocol_family = match parts.next() {
             Some(part) => {
-                if TCP4.eq_ignore_ascii_case(part) || TCP6.eq_ignore_ascii_case(part) || UNKNOWN.eq_ignore_ascii_case(part) {
+                if TCP4 == part || TCP6 == part || UNKNOWN == part {
                     Ok(part.to_string())
                 } else {
                     Err(Error::from(InvalidProtocolFamily))
@@ -66,7 +66,7 @@ impl Parser for Header {
             None => Err(Error::from(MissingProtocolFamily))
         }?;
 
-        if UNKNOWN.eq_ignore_ascii_case(&protocol_family) {
+        if UNKNOWN == protocol_family {
             return Ok(Header::unknown())
         }
 
@@ -152,6 +152,20 @@ mod tests {
         let expected = Header::unknown();
 
         assert_eq!(Header::parse(&mut text).unwrap(), expected);
+    }
+
+    #[test]
+    fn parse_lowercase_proxy() {
+        let mut text = "proxy UNKNOWN\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidHeader));
+    }
+
+    #[test]
+    fn parse_lowercase_protocol_family() {
+        let mut text = "PROXY tcp4\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidProtocolFamily));
     }
 
     #[test]
