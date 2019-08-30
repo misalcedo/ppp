@@ -1,3 +1,5 @@
+#![feature(test)]
+
 mod text;
 mod binary;
 mod error;

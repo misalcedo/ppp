@@ -2,6 +2,8 @@ use std::io::Read;
 use crate::error::Error;
 use crate::error::ErrorKind::*;
 
+extern crate test;
+
 trait Parser {
     fn parse(stream: &mut dyn Read) -> Result<Header, Error>;
 }
@@ -117,6 +119,7 @@ impl Parser for Header {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test::Bencher;
 
     #[test]
     fn proxy() {}
@@ -261,5 +264,12 @@ mod tests {
         let mut text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535 \r\n".as_bytes();
 
         assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidHeader));
+    }
+
+    #[bench]
+    fn bench_parse(b: &mut Bencher) {
+        let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
+        
+        b.iter(|| Header::parse(&mut text.as_bytes()).unwrap());
     }
 }
