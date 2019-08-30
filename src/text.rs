@@ -15,7 +15,7 @@ const TCP6: &str = "TCP6";
 const UNKNOWN: &str = "UNKNOWN";
 
 #[derive(Debug, Eq, PartialEq)]
-enum Header {
+pub enum Header {
     TCP {
         protocol_family: String,
         source_address: String,
@@ -27,7 +27,7 @@ enum Header {
 } 
 
 impl Header {
-    fn unknown() -> Header {
+    pub fn unknown() -> Header {
         Header::Unknown {}
     }
 }

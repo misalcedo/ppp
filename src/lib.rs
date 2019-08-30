@@ -3,6 +3,7 @@
 mod text;
 mod binary;
 mod error;
+mod parser;
 
 #[cfg(test)]
 mod tests {
