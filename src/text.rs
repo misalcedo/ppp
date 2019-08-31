@@ -219,6 +219,14 @@ mod tests {
     }
 
     #[test]
+    fn parse_tcp6_over_shortened() {
+        let mut text = "PROXY TCP6 ffff::ffff:ffff:ffff:ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidAddress));
+    }
+
+
+    #[test]
     fn parse_source_port_too_large() {
         let mut text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65536 65535\r\n".as_bytes();
 

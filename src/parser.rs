@@ -160,6 +160,13 @@ mod tests {
     }
 
     #[test]
+    fn parse_tcp6_over_shortened() {
+        let text = "PROXY TCP6 ffff::ffff:ffff:ffff:ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
+
+        assert!(parse_header(text).is_err());
+    }
+
+    #[test]
     fn parse_worst_case() {
         let text = "PROXY UNKNOWN ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
         let expected = Header::unknown();
