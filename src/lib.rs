@@ -1,9 +1,8 @@
 #![feature(test)]
 
-mod text;
 mod binary;
 mod error;
-mod parser;
+mod text;
 
 #[cfg(test)]
 mod tests {
