@@ -44,7 +44,7 @@ fn from_decimal(input: &str) -> Result<u16, &'static str> {
 
 fn parse_u16(input: &str) -> IResult<&str, u16> {
     map_res(
-        take_while_m_n(1, 5, |c| c != ' '),
+        digit1,
         from_decimal
     )(input)
 }
