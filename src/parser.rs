@@ -10,9 +10,11 @@ use nom::combinator::map_res;
 use nom::character::is_digit;
 use std::str::{FromStr, from_utf8};
 
+extern crate test;
+
 fn parse_header(input: &[u8]) -> IResult<&[u8], Header> {
     let (input, _) = pair(tag("PROXY"), tag(" "))(input)?;
-    let (input, header) = alt((parse_unknown, parse_tcp4))(input)?;
+    let (input, header) = alt((parse_tcp4, parse_unknown))(input)?;
 
     crlf(input).map(|(i, _)| (i, header))
 }
@@ -80,6 +82,7 @@ fn parse_tcp4(input: &[u8]) -> IResult<&[u8], Header> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::test::Bencher;
 
     #[test]
     fn proxy() {}
@@ -140,5 +143,12 @@ mod tests {
         let expected = Header::unknown();
 
         assert_eq!(parse_header(text).unwrap(), (&[][..], expected));
+    }
+
+    #[bench]
+    fn bench_parse(b: &mut Bencher) {
+        let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n";
+
+        b.iter(|| parse_header(text.as_bytes()).unwrap());
     }
 }
