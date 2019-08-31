@@ -5,6 +5,8 @@ use nom::character::complete::*;
 use nom::sequence::*;
 
 use nom::branch::alt;
+use nom::Err::*;
+use nom::Needed;
 use std::str::{FromStr, from_utf8};
 use std::net::IpAddr;
 
@@ -38,9 +40,9 @@ fn parse_header(input: &[u8]) -> IResult<&[u8], Header> {
         .map(|(_, o)| (input, o))
         .map_err(|e| {
             match e {
-                nom::Err::Incomplete(n) => nom::Err::Incomplete(n),
-                nom::Err::Failure((i, k)) => nom::Err::Failure((i.as_bytes(), k)), 
-                nom::Err::Error((i, k)) => nom::Err::Error((i.as_bytes(), k))
+                Incomplete(n) => Incomplete(n),
+                Failure((i, k)) => Failure((i.as_bytes(), k)), 
+                Error((i, k)) => Error((i.as_bytes(), k))
             }
         })
 }
@@ -110,6 +112,13 @@ mod tests {
         };
 
         assert_eq!(parse_header(text).unwrap(), (&[][..], expected));
+    }
+
+    #[test]
+    fn parse_incomplete() {
+        let text = "PROXY \r\n".as_bytes();
+
+        assert!(parse_header(text).is_err());
     }
 
     #[test]
