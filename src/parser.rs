@@ -32,8 +32,14 @@ fn from_decimal(input: &[u8]) -> Result<u8, &'static str> {
 }
 
 fn u16_from_decimal(input: &[u8]) -> Result<u16, &'static str> {
-    match from_utf8(input).ok().and_then(|s| u16::from_str(s).ok()) {
-        Some(value) => Ok(value),
+    match from_utf8(input).ok() {
+        Some(value) => {
+            if value.starts_with("0") {
+                Err("Port must not start with leading zeroes.")
+            } else {
+                u16::from_str(value).map_err(|_| "Unable to parse input as u16.")
+            }
+        },
         None => Err("Unable to parse input as u16.")
     }
 }
@@ -56,10 +62,15 @@ fn parse_ipv4_part(input: &[u8]) -> IResult<&[u8], u8> {
     preceded(tag("."), parse_u8)(input)
 }
 
+fn parse_until_space(input: &[u8]) -> IResult<&[u8], String> {
+    map_res(take_until(" "), |i| from_utf8(i).map(String::from))(input)
+}
+
 fn parse_ipv4(input: &[u8]) -> IResult<&[u8], String> {
     tuple((parse_u8, parse_ipv4_part, parse_ipv4_part, parse_ipv4_part))(input)
         .map(|(i, o)| (i, format!("{}.{}.{}.{}", o.0, o.1, o.2, o.3)))
 }
+
 
 fn parse_ports(input: &[u8]) -> IResult<&[u8], (u16, u16)> {
     separated_pair(parse_u16, tag(" "), parse_u16)(input)
@@ -67,11 +78,25 @@ fn parse_ports(input: &[u8]) -> IResult<&[u8], (u16, u16)> {
 
 fn parse_tcp4(input: &[u8]) -> IResult<&[u8], Header> {
     let (input, _) = pair(tag("TCP4"), tag(" "))(input)?;
-    let (input, (source_address, destination_address)) = separated_pair(parse_ipv4, tag(" "), parse_ipv4)(input)?;
+    let (input, (source_address, destination_address)) = separated_pair(parse_until_space, tag(" "), parse_until_space)(input)?;
     let (input, (source_port, destination_port)) = preceded(tag(" "), parse_ports)(input)?;
 
     Ok((input, Header::TCP {
         protocol_family: String::from("TCP4"),
+        source_address,
+        source_port,
+        destination_address,
+        destination_port,
+    }))
+}
+
+fn parse_tcp6(input: &[u8]) -> IResult<&[u8], Header> {
+    let (input, _) = pair(tag("TCP6"), tag(" "))(input)?;
+    let (input, (source_address, destination_address)) = separated_pair(parse_until_space, tag(" "), parse_until_space)(input)?;
+    let (input, (source_port, destination_port)) = preceded(tag(" "), parse_ports)(input)?;
+
+    Ok((input, Header::TCP {
+        protocol_family: String::from("TCP6"),
         source_address,
         source_port,
         destination_address,
@@ -123,7 +148,7 @@ mod tests {
         assert_eq!(parse_header(text).unwrap(), (&[][..], expected));
     }
 
-    //#[test]
+    #[test]
     fn parse_tcp6() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
         let expected = Header::TCP {
