@@ -1,7 +1,6 @@
 #![feature(test)]
 
 mod binary;
-mod error;
 mod text;
 
 #[cfg(test)]
