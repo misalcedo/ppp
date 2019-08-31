@@ -1,6 +1,8 @@
 use std::io::Read;
 use crate::error::Error;
 use crate::error::ErrorKind::*;
+use std::net::IpAddr;
+use std::str::FromStr;
 
 extern crate test;
 
@@ -18,9 +20,9 @@ const UNKNOWN: &str = "UNKNOWN";
 pub enum Header {
     TCP {
         protocol_family: String,
-        source_address: String,
+        source_address: IpAddr,
         source_port: u16,
-        destination_address: String,
+        destination_address: IpAddr,
         destination_port: u16
     },
     Unknown
@@ -35,7 +37,7 @@ impl Header {
 impl Parser for Header {
     /// See https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
     fn parse(stream: &mut dyn Read) -> Result<Header, Error> {
-        let mut buffer: [u8; 108] = [0; 108];
+        let mut buffer: [u8; 107] = [0; 107];
         let result = stream.read(&mut buffer)?;
         let header = std::str::from_utf8(&buffer[..result])?;
         let mut parts = header.trim_end_matches(CRLF).split(' ');
@@ -106,11 +108,12 @@ impl Parser for Header {
             return Err(Error::from(InvalidHeader));
         }
 
+
         Ok(Header::TCP {
             protocol_family: protocol_family, 
-            source_address: source_address, 
+            source_address: IpAddr::from_str(&source_address)?, 
             source_port: source_port.parse::<u16>()?,
-            destination_address: destination_address, 
+            destination_address: IpAddr::from_str(&destination_address)?, 
             destination_port: destination_port.parse::<u16>()?
         })
     }
@@ -136,13 +139,27 @@ mod tests {
         let mut text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n".as_bytes();
         let expected = Header::TCP {
             protocol_family: String::from("TCP4"),
-            source_address: String::from("255.255.255.255"),
+            source_address: IpAddr::from_str("255.255.255.255").unwrap(),
             source_port: 65535,
-            destination_address: String::from("255.255.255.255"),
+            destination_address: IpAddr::from_str("255.255.255.255").unwrap(),
             destination_port: 65535
         };
 
         assert_eq!(Header::parse(&mut text).unwrap(), expected);
+    }
+
+    #[test]
+    fn parse_tcp4_invalid() {
+        let mut text = "PROXY TCP4 255.255.255.255 256.255.255.255 65535 65535\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidAddress));
+    }
+
+    #[test]
+    fn parse_tcp4_leading_zeroes() {
+        let mut text = "PROXY TCP4 255.0255.255.255 255.255.255.255 65535 65535\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidAddress));
     }
 
     #[test]
@@ -164,10 +181,38 @@ mod tests {
         let mut text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
         let expected = Header::TCP {
             protocol_family: String::from("TCP6"),
-            source_address: String::from("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+            source_address: IpAddr::from_str("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff").unwrap(),
             source_port: 65535,
-            destination_address: String::from("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+            destination_address: IpAddr::from_str("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff").unwrap(),
             destination_port: 65535
+        };
+
+        assert_eq!(Header::parse(&mut text).unwrap(), expected);
+    }
+
+    #[test]
+    fn parse_tcp6_invalid() {
+        let mut text = "PROXY TCP6 ffff:gggg:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidAddress));
+    }
+
+    #[test]
+    fn parse_tcp6_leading_zeroes() {
+        let mut text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:0ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
+
+        assert_eq!(Header::parse(&mut text).unwrap_err(), Error::from(InvalidAddress));
+    }
+
+    #[test]
+    fn parse_tcp6_shortened_connection() {
+        let mut text = "PROXY TCP6 ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
+        let expected = Header::TCP {
+            protocol_family: String::from("TCP6"),
+            source_address: IpAddr::from_str("ffff::ffff").unwrap(),
+            source_port: 65535,
+            destination_address: IpAddr::from_str("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff").unwrap(),
+            destination_port: 65535,
         };
 
         assert_eq!(Header::parse(&mut text).unwrap(), expected);
