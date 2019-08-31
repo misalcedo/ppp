@@ -21,8 +21,8 @@ fn parse_header(input: &[u8]) -> IResult<&[u8], Header> {
         .map_err(|e| {
             match e {
                 nom::Err::Incomplete(n) => nom::Err::Incomplete(n),
-                nom::Err::Failure((i, k)) => {eprintln!("Failure {:?}: '{}'", k, i);nom::Err::Failure((i.as_bytes(), k))}, 
-                nom::Err::Error((i, k)) => {eprintln!("Error {:?}: '{}'", k, i);nom::Err::Error((i.as_bytes(), k))}
+                nom::Err::Failure((i, k)) => nom::Err::Failure((i.as_bytes(), k)), 
+                nom::Err::Error((i, k)) => nom::Err::Error((i.as_bytes(), k))
             }
         })
 }
