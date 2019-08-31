@@ -54,17 +54,6 @@ fn parse_until_space(input: &str) -> IResult<&str, String> {
 }
 
 fn parse_tcp(input: &str) -> IResult<&str, Header> {
-    let (i, pf) = map(alt((tag("TCP4"), tag("TCP6"))), String::from)(input)?;
-    eprintln!("TCP: {} => '{}'", pf, i);
-    let (i, sa) = preceded(tag(" "), parse_until_space)(i)?;
-    eprintln!("TCP SA {} => '{}'", sa, i);
-    let (i, da) = preceded(tag(" "), parse_until_space)(i)?;
-    eprintln!("TCP DA {} => '{}'", da, i);
-    let (i, sp) = preceded(tag(" "), parse_u16)(i)?;
-    eprintln!("TCP SP {} => '{}'", sp, i);
-    let (i, dp) = preceded(tag(" "), parse_u16)(i)?;
-    eprintln!("TCP DP {} => '{}'", dp, i);
-
     map(
         tuple((
             map(alt((tag("TCP4"), tag("TCP6"))), String::from),
