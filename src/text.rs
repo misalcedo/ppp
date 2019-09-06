@@ -6,7 +6,6 @@ use nom::sequence::*;
 
 use nom::branch::alt;
 use nom::Err::*;
-use nom::Needed;
 use std::str::{FromStr, from_utf8};
 use std::net::IpAddr;
 
@@ -30,7 +29,8 @@ impl Header {
     }
 }
 
-fn parse_header(input: &[u8]) -> IResult<&[u8], Header> {
+/// Parses a byte array as version 1 of the Proxy Protocol header.
+pub fn parse_header(input: &[u8]) -> IResult<&[u8], Header> {
     let (input, address) = map_res(
         delimited(terminated(tag("PROXY"), tag(" ")), take_until("\r\n"), crlf),
         from_utf8
