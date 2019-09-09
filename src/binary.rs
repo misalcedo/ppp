@@ -14,7 +14,8 @@ const PREFIX: &[u8] = b"\r\n\r\n\0\r\nQUIT\n";
 struct Header {
     version: Version,
     command: Command,
-    protocol_and_address_family: u8,
+    protocol: TransportProtocol,
+    address_family: AddressFamily,
     address: Vec<u8>
 }
 
@@ -69,15 +70,16 @@ enum Address {
 
 fn parse_header(input: &[u8]) -> IResult<&[u8], Header> {
     map(
-        preceded(tag(PREFIX), tuple((parse_command, be_u8, flat_map(be_u16, take)))),
-        |(command, y, bytes)| {
+        preceded(tag(PREFIX), tuple((parse_command, parse_protocol_family, flat_map(be_u16, take)))),
+        |((version, command), (address_family, protocol), bytes)| {
             let mut address: Vec<u8> = Vec::with_capacity(bytes.len());
             
             address.extend_from_slice(bytes);
             
             Header {
-                version: Version::Two,
-                protocol_and_address_family: y,
+                version,
+                address_family,
+                protocol,
                 command,
                 address 
             }
@@ -89,8 +91,11 @@ fn parse_address(input: &[u8]) -> IResult<&[u8], Address> {
     Ok((input, Address::Unspec(Vec::new()))) 
 }
 
-fn parse_command(input: &[u8]) -> IResult<&[u8], Command> {
-    alt((map(tag(b"\x20"), |_| Command::Local), map(tag(b"\x21"), |_| Command::Proxy)))(input)
+fn parse_command(input: &[u8]) -> IResult<&[u8], (Version, Command)> {
+    alt((
+        map(tag(b"\x20"), |_| (Version::Two, Command::Local)), 
+        map(tag(b"\x21"), |_| (Version::Two, Command::Proxy))
+    ))(input)
 }
 
 fn parse_protocol_family(input: &[u8]) -> IResult<&[u8], (AddressFamily, TransportProtocol)> {
@@ -106,7 +111,7 @@ fn parse_protocol_family(input: &[u8]) -> IResult<&[u8], (AddressFamily, Transpo
         map(tag(b"\x22"), |_| (AddressFamily::IPv6, TransportProtocol::Datagram)),
         map(tag(b"\x30"), |_| (AddressFamily::Unix, TransportProtocol::Unspec)),
         map(tag(b"\x31"), |_| (AddressFamily::Unix, TransportProtocol::Stream)),
-        map(tag(b"\x32"), |_| (AddressFamily::Unix, TransportProtocol::Datagram)),
+        map(tag(b"\x32"), |_| (AddressFamily::Unix, TransportProtocol::Datagram))
     ))(input)
 }
 
@@ -120,7 +125,8 @@ mod tests {
         let expected = Header {
                 version: Version::Two,
                 command: Command::Local,
-                protocol_and_address_family: 0x02,
+                protocol: TransportProtocol::Datagram,
+                address_family: AddressFamily::Unspec,
                 address: Vec::new()
         };
 
@@ -133,7 +139,8 @@ mod tests {
         let expected = Header {
                 version: Version::Two,
                 command: Command::Proxy,
-                protocol_and_address_family: 0x02,
+                protocol: TransportProtocol::Datagram,
+                address_family: AddressFamily::Unspec,
                 address: vec![0xFF]
         };
 

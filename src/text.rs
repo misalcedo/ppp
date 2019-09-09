@@ -62,7 +62,7 @@ fn from_decimal(input: &str) -> Result<u16, &'static str> {
     }
 }
 
-fn parse_u16(input: &str) -> IResult<&str, u16> {
+fn parse_port(input: &str) -> IResult<&str, u16> {
     map_res(
         digit1,
         from_decimal
@@ -79,8 +79,8 @@ fn parse_tcp(input: &str) -> IResult<&str, Header> {
             map(alt((tag("TCP4"), tag("TCP6"))), String::from),
             preceded(tag(" "), parse_until_space), 
             preceded(tag(" "), parse_until_space),
-            preceded(tag(" "), parse_u16),
-            preceded(tag(" "), parse_u16)
+            preceded(tag(" "), parse_port),
+            preceded(tag(" "), parse_port)
         )),
         |(protocol_family, source_address, destination_address, source_port, destination_port)| Header::TCP {
             protocol_family,
