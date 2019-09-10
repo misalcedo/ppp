@@ -9,6 +9,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 extern crate test;
 
 const PREFIX: &[u8] = b"\r\n\r\n\0\r\nQUIT\n";
+const EMPTY_SLICE: &[u8] = &[];
 
 #[derive(Debug, Eq, PartialEq)]
 struct Header {
@@ -68,6 +69,15 @@ enum Address {
     }
 }
 
+impl Address {
+    fn new_unix((source, destination): ([u8; 108], [u8; 108])) -> Address {
+        Address::Unix {
+            source: [0; 32],
+            destination: [0; 32]
+        }
+    }
+}
+
 fn parse_header(input: &[u8]) -> IResult<&[u8], Header> {
     map(
         preceded(tag(PREFIX), tuple((parse_command, parse_protocol_family, flat_map(be_u16, take)))),
@@ -81,14 +91,47 @@ fn parse_header(input: &[u8]) -> IResult<&[u8], Header> {
                 address_family,
                 protocol,
                 command,
-                address 
+                address
             }
         }
     )(input)
 }
 
-fn parse_address(input: &[u8]) -> IResult<&[u8], Address> {
-    Ok((input, Address::Unspec(Vec::new()))) 
+fn copy_slice(input: &[u8]) -> [u8; 108] {
+    let mut copy: [u8; 108] = [0; 108];
+    
+    copy.copy_from_slice(input);
+    
+    copy
+}
+
+fn take_108(input: &[u8]) -> IResult<&[u8], [u8; 108]> {
+    map(take(108usize), copy_slice)(input)
+}
+
+fn parse_unix_address(input: &[u8]) -> IResult<&[u8], Address> {
+    map(
+        tuple((take_108, take_108)),
+        Address::new_unix
+    )(input)
+}
+
+// Parse source and destination addresses from the given input.
+// The type of the address is determined by the given AddressFamily.
+// The AddressFamily::Unspec consumes the entirity of the given input.
+fn parse_address(address_family: AddressFamily, input: &[u8]) -> IResult<&[u8], Address> {
+    match address_family {
+        AddressFamily::IPv4 => Ok((EMPTY_SLICE, Address::Unspec(Vec::new()))),
+        AddressFamily::IPv6 => Ok((EMPTY_SLICE, Address::Unspec(Vec::new()))),
+        AddressFamily::Unix => Ok((EMPTY_SLICE, Address::Unspec(Vec::new()))),
+        AddressFamily::Unspec => {
+            let mut address: Vec<u8> = Vec::with_capacity(input.len());
+            
+            address.extend_from_slice(input);
+            
+            Ok((EMPTY_SLICE, Address::Unspec(address)))
+        }
+    }
 }
 
 fn parse_command(input: &[u8]) -> IResult<&[u8], (Version, Command)> {
