@@ -47,16 +47,16 @@ fn parse_ipv4(input: &[u8]) -> IResult<&[u8], Header> {
             separated_pair(parse_port, tag(" "), parse_port),
         ),
     ),
-        |((source_address, destination_address), (source_port, destination_port))| {
-            Header::new(
-                Version::One,
-                Command::Proxy,
-                Some(Protocol::Stream),
-                vec![],
-                Some((source_port, source_address).into()),
-                Some((source_port, destination_address).into()),
-            )
-        },
+                      |((source_address, destination_address), (source_port, destination_port))| {
+                          Header::new(
+                              Version::One,
+                              Command::Proxy,
+                              Some(Protocol::Stream),
+                              vec![],
+                              Some((source_port, source_address).into()),
+                              Some((source_port, destination_address).into()),
+                          )
+                      },
     ))(input)
 }
 
@@ -69,7 +69,11 @@ fn parse_unknown(input: &[u8]) -> IResult<&[u8], Header> {
 
 fn parse_v1_header(input: &[u8]) -> IResult<&[u8], Header> {
     map_parser(
-        delimited(pair(bytes::streaming::tag("PROXY"), bytes::streaming::tag(" ")), take_until("\r\n"), bytes::streaming::tag("\r\n")),
+        delimited(
+            pair(bytes::streaming::tag("PROXY"), bytes::streaming::tag(" ")),
+            verify(take_until("\r\n"), |i: &[u8]| i.len() < 100),
+            bytes::streaming::tag("\r\n"),
+        ),
         alt((parse_unknown, parse_ipv4)),
     )(input)
 }
