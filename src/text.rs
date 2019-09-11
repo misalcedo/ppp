@@ -1,19 +1,77 @@
 use nom::IResult;
-use nom::bytes::streaming::*;
-use nom::combinator::*;
-use nom::character::streaming::*;
-use nom::sequence::*;
-
+use nom::bytes;
+use nom::bytes::complete::{take_while_m_n, tag};
+use nom::character::complete::digit1;
 use nom::branch::alt;
-use nom::Err::*;
 use std::str::{FromStr, from_utf8};
 use std::net::IpAddr;
-use crate::model::{Header, Version, Command, Protocol, Tlv};
+use crate::model::{Header, Version, Command, Protocol, Tlv, Address};
+use nom::combinator::{map, map_res, verify, map_parser, all_consuming};
+use nom::sequence::{terminated, tuple, separated_pair, preceded, pair, delimited};
+use nom::bytes::streaming::take_until;
 
 extern crate test;
 
+fn parse_decimal(input: &[u8]) -> IResult<&[u8], &str> {
+    map_res(
+        verify(digit1, |i: &[u8]| i.len() == 1 || i[0] != 48),
+        std::str::from_utf8,
+    )(input)
+}
+
+fn parse_port(input: &[u8]) -> IResult<&[u8], u16> {
+    map_res(parse_decimal, |s| s.parse::<u16>())(input)
+}
+
+
+fn parse_ipv4_byte(input: &[u8]) -> IResult<&[u8], u8> {
+    map_res(parse_decimal, |s| s.parse::<u8>())(input)
+}
+
+fn parse_ipv4_address(input: &[u8]) -> IResult<&[u8], [u8; 4]> {
+    map(
+        tuple((
+            terminated(parse_ipv4_byte, tag(".")),
+            terminated(parse_ipv4_byte, tag(".")),
+            terminated(parse_ipv4_byte, tag(".")),
+            parse_ipv4_byte
+        )),
+        |(a, b, c, d)| [a, b, c, d],
+    )(input)
+}
+
+fn parse_ipv4(input: &[u8]) -> IResult<&[u8], Header> {
+    all_consuming(map(preceded(
+        terminated(tag("TCP4"), tag(" ")), pair(
+            terminated(separated_pair(parse_ipv4_address, tag(" "), parse_ipv4_address), tag(" ")),
+            separated_pair(parse_port, tag(" "), parse_port),
+        ),
+    ),
+        |((source_address, destination_address), (source_port, destination_port))| {
+            Header::new(
+                Version::One,
+                Command::Proxy,
+                Some(Protocol::Stream),
+                vec![],
+                Some((source_port, source_address).into()),
+                Some((source_port, destination_address).into()),
+            )
+        },
+    ))(input)
+}
+
+fn parse_unknown(input: &[u8]) -> IResult<&[u8], Header> {
+    map(
+        preceded(tag("UNKNOWN"), take_while_m_n(0, 92, |_| true)),
+        |_| Header::unknown(),
+    )(input)
+}
+
 fn parse_v1_header(input: &[u8]) -> IResult<&[u8], Header> {
-    Ok((&[][..], Header::unknown()))
+    map_parser(
+        delimited(pair(bytes::streaming::tag("PROXY"), bytes::streaming::tag(" ")), take_until("\r\n"), bytes::streaming::tag("\r\n")),
+        alt((parse_unknown, parse_ipv4)),
+    )(input)
 }
 
 #[cfg(test)]
@@ -35,7 +93,7 @@ mod tests {
             Some(address),
         );
 
-        assert_eq!(parse_v1_header(text).unwrap(), (&[][..], expected));
+        assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
     }
 
     #[test]
@@ -62,9 +120,8 @@ mod tests {
     #[test]
     fn parse_unknown_connection() {
         let text = "PROXY UNKNOWN\r\n".as_bytes();
-        let expected = Header::unknown();
 
-        assert_eq!(parse_v1_header(text).unwrap(), (&[][..], expected));
+        assert_eq!(parse_v1_header(text), Ok((&[][..], Header::unknown())));
     }
 
     #[test]
@@ -80,7 +137,7 @@ mod tests {
             Some(address),
         );
 
-        assert_eq!(parse_v1_header(text).unwrap(), (&[][..], expected));
+        assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
     }
 
     #[test]
@@ -110,7 +167,7 @@ mod tests {
             Some(address),
         );
 
-        assert_eq!(parse_v1_header(text).unwrap(), (&[][..], expected));
+        assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
     }
 
     #[test]
@@ -123,9 +180,8 @@ mod tests {
     #[test]
     fn parse_worst_case() {
         let text = "PROXY UNKNOWN ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
-        let expected = Header::unknown();
 
-        assert_eq!(parse_v1_header(text).unwrap(), (&[][..], expected));
+        assert_eq!(parse_v1_header(text), Ok((&[][..], Header::unknown())));
     }
 
     #[test]

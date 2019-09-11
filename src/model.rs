@@ -1,7 +1,4 @@
-extern crate test;
-
 use std::slice::Iter;
-use std::net::IpAddr;
 
 /// The version of the proxy protocol header.
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Copy, Clone)]
@@ -97,27 +94,15 @@ pub enum IpAddress {
     V6([u8; 16]),
 }
 
-impl IpAddress {
-    /// Creates an IP address from the given byte slice.
-    /// If the slice is not either 4 or 16 bytes in length, returns an error.
-    fn new(bytes: &[u8]) -> Result<IpAddress, ()> {
-        match bytes.len() {
-            4 => {
-                let mut address: [u8; 4] = [0; 4];
+impl From<[u8; 4]> for IpAddress {
+    fn from(address: [u8; 4]) -> Self {
+        IpAddress::V4(address)
+    }
+}
 
-                address.copy_from_slice(bytes);
-
-                Ok(IpAddress::V4(address))
-            }
-            16 => {
-                let mut address: [u8; 16] = [0; 16];
-
-                address.copy_from_slice(bytes);
-
-                Ok(IpAddress::V6(address))
-            }
-            _ => Err(())
-        }
+impl From<[u8; 16]> for IpAddress {
+    fn from(address: [u8; 16]) -> Self {
+        IpAddress::V6(address)
     }
 }
 
@@ -144,9 +129,41 @@ impl Address {
     /// Create a new instance of an address.
     /// If the address is not valid, returns an error.
     pub fn new_ip(port: u16, bytes: &[u8]) -> Result<Address, ()> {
-        let address = IpAddress::new(bytes)?;
+        match bytes.len() {
+            4 => {
+                let mut address: [u8; 4] = [0; 4];
 
-        Ok(Address::InternetProtocol { address, port })
+                address.copy_from_slice(bytes);
+
+                Ok((port, address).into())
+            }
+            16 => {
+                let mut address: [u8; 16] = [0; 16];
+
+                address.copy_from_slice(bytes);
+
+                Ok((port, address).into())
+            }
+            _ => Err(())
+        }
+    }
+}
+
+impl From<(u16, [u8; 4])> for Address {
+    fn from((port, address): (u16, [u8; 4])) -> Self {
+        Address::InternetProtocol { port, address: address.into() }
+    }
+}
+
+impl From<(u16, [u8; 16])> for Address {
+    fn from((port, address): (u16, [u8; 16])) -> Self {
+        Address::InternetProtocol { port, address: address.into() }
+    }
+}
+
+impl From<[u8; 128]> for Address {
+    fn from(_path: [u8; 128]) -> Self {
+        Address::Unix
     }
 }
 
@@ -227,8 +244,6 @@ impl Header {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::test::Bencher;
-    use crate::model::Address::InternetProtocol;
 
     #[test]
     fn header_version() {
@@ -300,11 +315,10 @@ mod tests {
 
     #[test]
     fn ip_address() {
-        assert_eq!(Err(()), IpAddress::new(&[1, 2, 3, 4, 5][..]));
-        assert_eq!(Ok(IpAddress::V4([127, 0, 0, 1])), IpAddress::new(&[127, 0, 0, 1][..]));
+        assert_eq!(IpAddress::V4([127, 0, 0, 1]), [127, 0, 0, 1].into());
         assert_eq!(
-            Ok(IpAddress::V6([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255])),
-            IpAddress::new(&[255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255][..])
+            IpAddress::V6([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]),
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255].into()
         );
     }
 
