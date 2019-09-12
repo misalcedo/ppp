@@ -188,6 +188,21 @@ impl Header {
         }
     }
 
+    /// Create a new instance of a header for version 1 with an unknown address family and protocol.
+    pub fn version_1(
+        source_address: Address,
+        destination_address: Address,
+    ) -> Header {
+        Header {
+            version: Version::One,
+            command: Command::Proxy,
+            protocol: Some(Protocol::Stream),
+            tlvs: vec![],
+            source_address: Some(source_address),
+            destination_address: Some(destination_address),
+        }
+    }
+
     /// The version of the parsed header.
     pub fn version(&self) -> &Version {
         &self.version
@@ -258,6 +273,20 @@ mod tests {
         };
 
         assert_eq!(expected, Header::unknown());
+    }
+
+    #[test]
+    fn header_version1() {
+        let expected = Header {
+            version: Version::One,
+            command: Command::Proxy,
+            protocol: Some(Protocol::Stream),
+            tlvs: vec![],
+            source_address: Some((1, [127, 0, 0, 1]).into()),
+            destination_address: Some((2, [127, 0, 0, 2]).into()),
+        };
+
+        assert_eq!(expected, Header::version_1((1, [127, 0, 0, 1]).into(), (2, [127, 0, 0, 2]).into()));
     }
 
     #[test]
