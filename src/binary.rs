@@ -78,7 +78,7 @@ impl Address {
     }
 }
 
-fn parse_header(input: &[u8]) -> IResult<&[u8], Header> {
+pub fn parse_v2_header(input: &[u8]) -> IResult<&[u8], Header> {
     map(
         preceded(tag(PREFIX), tuple((parse_command, parse_protocol_family, flat_map(be_u16, take)))),
         |((version, command), (address_family, protocol), bytes)| {
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn no_address_local() {
-        let result = parse_header(b"\r\n\r\n\0\r\nQUIT\n\x20\x02\0\0");
+        let result = parse_v2_header(b"\r\n\r\n\0\r\nQUIT\n\x20\x02\0\0");
         let expected = Header {
                 version: Version::Two,
                 command: Command::Local,
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn no_address_proxy() {
-        let result = parse_header(b"\r\n\r\n\0\r\nQUIT\n\x21\x02\0\x01\xFF");
+        let result = parse_v2_header(b"\r\n\r\n\0\r\nQUIT\n\x21\x02\0\x01\xFF");
         let expected = Header {
                 version: Version::Two,
                 command: Command::Proxy,
@@ -192,14 +192,14 @@ mod tests {
 
     #[test]
     fn wrong_version() {
-        let result = parse_header(b"\r\n\r\n\0\r\nQUIT\n\x13\x02\0\x01\xFF");
+        let result = parse_v2_header(b"\r\n\r\n\0\r\nQUIT\n\x13\x02\0\x01\xFF");
 
         assert!(result.is_err());
     }
 
     #[test]
     fn not_prefixed() {
-        let result = parse_header(b"\r\n\r\n\x01\r\nQUIT\n");
+        let result = parse_v2_header(b"\r\n\r\n\x01\r\nQUIT\n");
 
         assert!(result.is_err());
     }
@@ -207,7 +207,7 @@ mod tests {
     #[test]
     fn incomplete() {
         let bytes = [0x0D, 0x0A, 0x0D, 0x0A, 0x00];
-        let result = parse_header(&bytes[..]);
+        let result = parse_v2_header(&bytes[..]);
 
         assert!(result.is_err());
     }

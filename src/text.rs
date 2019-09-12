@@ -140,18 +140,18 @@ fn parse_unknown(input: &[u8]) -> IResult<&[u8], Header> {
 
 /// Parses a version 1 header of HAProxy's proxy protocol.
 ///
-/// ## Examples
-/// ### Partial
+/// # Examples
+/// Partial
 /// ```rust
 /// assert!(ppp::text::parse_v1_header(b"PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535").unwrap_err().is_incomplete());
 /// ```
 ///
-/// ### Unknown
+/// Unknown
 /// ```rust
 /// assert_eq!(ppp::text::parse_v1_header(b"PROXY UNKNOWN\r\n"), Ok((&[][..], ppp::model::Header::unknown())));
 /// ```
 ///
-/// ### TCP4
+/// TCP4
 /// ```rust
 /// assert_eq!(ppp::text::parse_v1_header(b"PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n"), Ok((&[][..], ppp::model:: Header::version_1(
 ///            (65535, [255, 255, 255, 255]).into(),
@@ -159,7 +159,7 @@ fn parse_unknown(input: &[u8]) -> IResult<&[u8], Header> {
 ///        ))));
 /// ```
 ///
-/// ### TCP6
+/// TCP6
 /// ```rust
 /// assert_eq!(ppp::text::parse_v1_header(b"PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n"), Ok((&[][..], ppp::model:: Header::version_1(
 ///            (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
