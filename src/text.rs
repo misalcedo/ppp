@@ -7,18 +7,22 @@ use crate::model::{Header, Version, Command, Protocol, Address};
 use nom::combinator::{map, map_res, verify, map_parser, all_consuming};
 use nom::sequence::{terminated, tuple, separated_pair, preceded, pair, delimited};
 use nom::bytes::streaming::take_until;
+use nom::character::is_hex_digit;
 
 extern crate test;
 
 fn parse_hexadecimal(input: &[u8]) -> IResult<&[u8], &str> {
-    map_res(hex_digit1, std::str::from_utf8)(input)
+    map_res(take_while_m_n(4, 4, is_hex_digit), std::str::from_utf8)(input)
 }
 
 fn parse_ipv6_group(input: &[u8]) -> IResult<&[u8], u16> {
-    map_res(parse_hexadecimal, |s| s.parse::<u16>())(input)
+    debug(input);
+    map_res(parse_hexadecimal, |s| u16::from_str_radix(s, 16))(input)
 }
 
 fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
+    debug(input);
+
     map(
         tuple((
             terminated(parse_ipv6_group, tag(":")),
@@ -32,6 +36,34 @@ fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
         )),
         |(a, b, c, d, e, f, g, h)| [a, b, c, d, e, f, g, h],
     )(input)
+}
+
+fn parse_ipv6(input: &[u8]) -> IResult<&[u8], Header> {
+    debug(input);
+
+    all_consuming(map(preceded(
+        terminated(tag("TCP6"), tag(" ")), pair(
+            terminated(separated_pair(parse_ipv6_address, tag(" "), parse_ipv6_address), tag(" ")),
+            separated_pair(parse_port, tag(" "), parse_port),
+        ),
+    ),
+                      |((source_address, destination_address), (source_port, destination_port))| {
+                          Header::new(
+                              Version::One,
+                              Command::Proxy,
+                              Some(Protocol::Stream),
+                              vec![],
+                              Some((source_port, source_address).into()),
+                              Some((source_port, destination_address).into()),
+                          )
+                      },
+    ))(input)
+}
+
+fn debug(input: &[u8]) {
+    if let Ok(s) = std::str::from_utf8(input) {
+        println!("'{}'", s);
+    }
 }
 
 fn parse_decimal(input: &[u8]) -> IResult<&[u8], &str> {
@@ -96,7 +128,7 @@ fn parse_v1_header(input: &[u8]) -> IResult<&[u8], Header> {
             verify(take_until("\r\n"), |i: &[u8]| i.len() < 100),
             bytes::streaming::tag("\r\n"),
         ),
-        alt((parse_unknown, parse_ipv4)),
+        alt((parse_ipv4, parse_ipv6, parse_unknown)),
     )(input)
 }
 
