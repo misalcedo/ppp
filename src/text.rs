@@ -36,6 +36,22 @@ fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
     )(input)
 }
 
+fn parse_ipv6_address_zero_compressed(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
+    map(
+        tuple((
+            terminated(parse_ipv6_group, tag(":")),
+            terminated(parse_ipv6_group, tag(":")),
+            terminated(parse_ipv6_group, tag(":")),
+            terminated(parse_ipv6_group, tag(":")),
+            terminated(parse_ipv6_group, tag(":")),
+            terminated(parse_ipv6_group, tag(":")),
+            terminated(parse_ipv6_group, tag(":")),
+            parse_ipv6_group
+        )),
+        |(a, b, c, d, e, f, g, h)| [a, b, c, d, e, f, g, h],
+    )(input)
+}
+
 pub fn parse_ip<O, F>(protocol_family: &'static str, parse_ip_address: F) -> impl Fn(&[u8]) -> IResult<&[u8], Header>
     where
         F: Fn(&[u8]) -> IResult<&[u8], O>,
@@ -210,6 +226,38 @@ mod tests {
         );
 
         assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
+    }
+
+    #[test]
+    fn parse_tcp6_wildcard() {
+        let text = "PROXY TCP6 :: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
+        let address: Address = (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into();
+        let expected = Header::new(
+            Version::One,
+            Command::Proxy,
+            Some(Protocol::Stream),
+            vec![],
+            Some(address.clone()),
+            Some(address),
+        );
+
+        assert!(parse_v1_header(text).is_err());
+    }
+
+    #[test]
+    fn parse_tcp6_implied() {
+        let text = "PROXY TCP6 ffff:: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
+        let address: Address = (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into();
+        let expected = Header::new(
+            Version::One,
+            Command::Proxy,
+            Some(Protocol::Stream),
+            vec![],
+            Some(address.clone()),
+            Some(address),
+        );
+
+        assert!(parse_v1_header(text).is_err());
     }
 
     #[test]
