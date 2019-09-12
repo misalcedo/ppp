@@ -67,7 +67,7 @@ fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
 }
 
 /// Parse a header with the TCP protocol and a generic address family.
-pub fn parse_tcp<O, F>(protocol_family: &'static str, parse_ip_address: F) -> impl Fn(&[u8]) -> IResult<&[u8], Header>
+fn parse_tcp<O, F>(protocol_family: &'static str, parse_ip_address: F) -> impl Fn(&[u8]) -> IResult<&[u8], Header>
     where
         F: Fn(&[u8]) -> IResult<&[u8], O>,
         (u16, O): Into<Address>
@@ -138,7 +138,6 @@ fn parse_unknown(input: &[u8]) -> IResult<&[u8], Header> {
     )(input)
 }
 
-/// ## Description
 /// Parses a version 1 header of HAProxy's proxy protocol.
 ///
 /// ## Examples
