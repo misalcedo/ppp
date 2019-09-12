@@ -1,4 +1,4 @@
-use nom::IResult;
+use nom::{IResult, InputLength};
 use nom::bytes;
 use nom::bytes::complete::{take_while_m_n, tag};
 use nom::character::complete::{digit1, hex_digit1};
@@ -8,6 +8,7 @@ use nom::combinator::{map, map_res, verify, map_parser, all_consuming};
 use nom::sequence::{terminated, tuple, separated_pair, preceded, pair, delimited};
 use nom::bytes::streaming::take_until;
 use nom::character::is_hex_digit;
+use nom::error::ParseError;
 
 extern crate test;
 
@@ -16,13 +17,10 @@ fn parse_hexadecimal(input: &[u8]) -> IResult<&[u8], &str> {
 }
 
 fn parse_ipv6_group(input: &[u8]) -> IResult<&[u8], u16> {
-    debug(input);
     map_res(parse_hexadecimal, |s| u16::from_str_radix(s, 16))(input)
 }
 
 fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
-    debug(input);
-
     map(
         tuple((
             terminated(parse_ipv6_group, tag(":")),
@@ -38,32 +36,34 @@ fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
     )(input)
 }
 
-fn parse_ipv6(input: &[u8]) -> IResult<&[u8], Header> {
-    debug(input);
-
-    all_consuming(map(preceded(
-        terminated(tag("TCP6"), tag(" ")), pair(
-            terminated(separated_pair(parse_ipv6_address, tag(" "), parse_ipv6_address), tag(" ")),
-            separated_pair(parse_port, tag(" "), parse_port),
+pub fn parse_ip<O, F>(protocol_family: &'static str, parse_ip_address: F) -> impl Fn(&[u8]) -> IResult<&[u8], Header>
+    where
+        F: Fn(&[u8]) -> IResult<&[u8], O>,
+        (u16, O): Into<Address>
+{
+    move |input: &[u8]| {
+        all_consuming(map(preceded(
+            terminated(tag(protocol_family), tag(" ")), pair(
+                terminated(separated_pair(&parse_ip_address, tag(" "), &parse_ip_address), tag(" ")),
+                separated_pair(parse_port, tag(" "), parse_port),
+            ),
         ),
-    ),
-                      |((source_address, destination_address), (source_port, destination_port))| {
-                          Header::new(
-                              Version::One,
-                              Command::Proxy,
-                              Some(Protocol::Stream),
-                              vec![],
-                              Some((source_port, source_address).into()),
-                              Some((source_port, destination_address).into()),
-                          )
-                      },
-    ))(input)
+                          |((source_address, destination_address), (source_port, destination_port))| {
+                              Header::new(
+                                  Version::One,
+                                  Command::Proxy,
+                                  Some(Protocol::Stream),
+                                  vec![],
+                                  Some((source_port, source_address).into()),
+                                  Some((source_port, destination_address).into()),
+                              )
+                          },
+        ))(input)
+    }
 }
 
-fn debug(input: &[u8]) {
-    if let Ok(s) = std::str::from_utf8(input) {
-        println!("'{}'", s);
-    }
+fn parse_ipv6(input: &[u8]) -> IResult<&[u8], Header> {
+    parse_ip("TCP6", parse_ipv6_address)(input)
 }
 
 fn parse_decimal(input: &[u8]) -> IResult<&[u8], &str> {
@@ -95,23 +95,7 @@ fn parse_ipv4_address(input: &[u8]) -> IResult<&[u8], [u8; 4]> {
 }
 
 fn parse_ipv4(input: &[u8]) -> IResult<&[u8], Header> {
-    all_consuming(map(preceded(
-        terminated(tag("TCP4"), tag(" ")), pair(
-            terminated(separated_pair(parse_ipv4_address, tag(" "), parse_ipv4_address), tag(" ")),
-            separated_pair(parse_port, tag(" "), parse_port),
-        ),
-    ),
-                      |((source_address, destination_address), (source_port, destination_port))| {
-                          Header::new(
-                              Version::One,
-                              Command::Proxy,
-                              Some(Protocol::Stream),
-                              vec![],
-                              Some((source_port, source_address).into()),
-                              Some((source_port, destination_address).into()),
-                          )
-                      },
-    ))(input)
+    parse_ip("TCP4", parse_ipv4_address)(input)
 }
 
 fn parse_unknown(input: &[u8]) -> IResult<&[u8], Header> {
@@ -121,7 +105,7 @@ fn parse_unknown(input: &[u8]) -> IResult<&[u8], Header> {
     )(input)
 }
 
-fn parse_v1_header(input: &[u8]) -> IResult<&[u8], Header> {
+pub fn parse_v1_header(input: &[u8]) -> IResult<&[u8], Header> {
     map_parser(
         delimited(
             pair(bytes::streaming::tag("PROXY"), bytes::streaming::tag(" ")),
