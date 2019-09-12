@@ -91,7 +91,7 @@ impl Tlv {
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum IpAddress {
     V4([u8; 4]),
-    V6([u8; 16]),
+    V6([u16; 8]),
 }
 
 impl From<[u8; 4]> for IpAddress {
@@ -100,8 +100,8 @@ impl From<[u8; 4]> for IpAddress {
     }
 }
 
-impl From<[u8; 16]> for IpAddress {
-    fn from(address: [u8; 16]) -> Self {
+impl From<[u16; 8]> for IpAddress {
+    fn from(address: [u16; 8]) -> Self {
         IpAddress::V6(address)
     }
 }
@@ -113,7 +113,7 @@ pub enum Address {
         address: IpAddress,
         port: u16,
     },
-    Unix,
+    Unix//([u32; 27]),
 }
 
 impl Address {
@@ -121,29 +121,7 @@ impl Address {
     /// If the address is not valid, returns an error.
     pub fn new_unix(bytes: &[u8]) -> Result<Address, ()> {
         match bytes.len() {
-            128 => Ok(Address::Unix),
-            _ => Err(())
-        }
-    }
-
-    /// Create a new instance of an address.
-    /// If the address is not valid, returns an error.
-    pub fn new_ip(port: u16, bytes: &[u8]) -> Result<Address, ()> {
-        match bytes.len() {
-            4 => {
-                let mut address: [u8; 4] = [0; 4];
-
-                address.copy_from_slice(bytes);
-
-                Ok((port, address).into())
-            }
-            16 => {
-                let mut address: [u8; 16] = [0; 16];
-
-                address.copy_from_slice(bytes);
-
-                Ok((port, address).into())
-            }
+            108 => Ok(Address::Unix),
             _ => Err(())
         }
     }
@@ -155,8 +133,8 @@ impl From<(u16, [u8; 4])> for Address {
     }
 }
 
-impl From<(u16, [u8; 16])> for Address {
-    fn from((port, address): (u16, [u8; 16])) -> Self {
+impl From<(u16, [u16; 8])> for Address {
+    fn from((port, address): (u16, [u16; 8])) -> Self {
         Address::InternetProtocol { port, address: address.into() }
     }
 }
@@ -317,28 +295,24 @@ mod tests {
     fn ip_address() {
         assert_eq!(IpAddress::V4([127, 0, 0, 1]), [127, 0, 0, 1].into());
         assert_eq!(
-            IpAddress::V6([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]),
-            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255].into()
+            IpAddress::V6([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]),
+            [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF].into()
         );
     }
 
     #[test]
     fn address() {
-        let ipv6 = [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255];
-
-        assert_eq!(Err(()), Address::new_unix(&[1, 2, 3, 4, 5][..]));
-        assert_eq!(Ok(Address::Unix), Address::new_unix(&[0; 128][..]));
-        assert_eq!(Err(()), Address::new_ip(1, &[1, 2, 3, 4, 5][..]));
+        assert_eq!(Ok(Address::Unix), Address::new_unix(&[0; 108][..]));
         assert_eq!(
-            Ok(Address::InternetProtocol {
+            Address::InternetProtocol {
                 address: IpAddress::V4([127, 0, 0, 1]),
                 port: 3456,
-            }),
-            Address::new_ip(3456, &[127, 0, 0, 1][..])
+            },
+            (3456u16, [127u8, 0u8, 0u8, 1u8]).into()
         );
         assert_eq!(
-            Ok(Address::InternetProtocol { address: IpAddress::V6(ipv6.clone()), port: 12345 }),
-            Address::new_ip(12345, &ipv6[..])
+            Address::InternetProtocol { address: IpAddress::V6([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]), port: 12345 },
+            (12345u16, [0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16]).into()
         );
     }
 }

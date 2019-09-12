@@ -1,16 +1,38 @@
 use nom::IResult;
 use nom::bytes;
 use nom::bytes::complete::{take_while_m_n, tag};
-use nom::character::complete::digit1;
+use nom::character::complete::{digit1, hex_digit1};
 use nom::branch::alt;
-use std::str::{FromStr, from_utf8};
-use std::net::IpAddr;
-use crate::model::{Header, Version, Command, Protocol, Tlv, Address};
+use crate::model::{Header, Version, Command, Protocol, Address};
 use nom::combinator::{map, map_res, verify, map_parser, all_consuming};
 use nom::sequence::{terminated, tuple, separated_pair, preceded, pair, delimited};
 use nom::bytes::streaming::take_until;
 
 extern crate test;
+
+fn parse_hexadecimal(input: &[u8]) -> IResult<&[u8], &str> {
+    map_res(hex_digit1, std::str::from_utf8)(input)
+}
+
+fn parse_ipv6_group(input: &[u8]) -> IResult<&[u8], u16> {
+    map_res(parse_hexadecimal, |s| s.parse::<u16>())(input)
+}
+
+fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
+    map(
+        tuple((
+            terminated(parse_ipv6_group, tag(":")),
+            terminated(parse_ipv6_group, tag(":")),
+            terminated(parse_ipv6_group, tag(":")),
+            terminated(parse_ipv6_group, tag(":")),
+            terminated(parse_ipv6_group, tag(":")),
+            terminated(parse_ipv6_group, tag(":")),
+            terminated(parse_ipv6_group, tag(":")),
+            parse_ipv6_group
+        )),
+        |(a, b, c, d, e, f, g, h)| [a, b, c, d, e, f, g, h],
+    )(input)
+}
 
 fn parse_decimal(input: &[u8]) -> IResult<&[u8], &str> {
     map_res(
@@ -87,7 +109,7 @@ mod tests {
     #[test]
     fn parse_tcp4_connection() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n".as_bytes();
-        let address = Address::new_ip(65535, &[255, 255, 255, 255][..]).unwrap();
+        let address: Address = (65535, [255, 255, 255, 255]).into();
         let expected = Header::new(
             Version::One,
             Command::Proxy,
@@ -131,7 +153,7 @@ mod tests {
     #[test]
     fn parse_tcp6_connection() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
-        let address = Address::new_ip(65535, &[255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255][..]).unwrap();
+        let address: Address = (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into();
         let expected = Header::new(
             Version::One,
             Command::Proxy,
@@ -161,7 +183,7 @@ mod tests {
     #[test]
     fn parse_tcp6_shortened_connection() {
         let text = "PROXY TCP6 ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
-        let address = Address::new_ip(65535, &[255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255][..]).unwrap();
+        let address: Address = (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into();
         let expected = Header::new(
             Version::One,
             Command::Proxy,
