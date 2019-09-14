@@ -185,11 +185,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn empty_tlvs() {
-        assert_eq!(parse_tlvs(&[][..]), Ok((&[][..], Vec::new())));
-    }
-
-    #[test]
     fn parse_proxy() {
         let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
 
