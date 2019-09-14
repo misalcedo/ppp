@@ -38,6 +38,7 @@ pub fn parse_v2_header(input: &[u8]) -> IResult<&[u8], Header> {
     )(input)
 }
 
+/// Parse the entire header, required an optional parts.
 fn parse_full_header(required_header: RequiredHeader) -> impl Fn(&[u8]) -> IResult<&[u8], Header>
 {
     move |input: &[u8]| {
@@ -50,6 +51,7 @@ fn parse_full_header(required_header: RequiredHeader) -> impl Fn(&[u8]) -> IResu
     }
 }
 
+/// Parse the required portion of the header.
 fn parse_required_header(input: &[u8]) -> IResult<&[u8], RequiredHeader> {
     preceded(
         tag(PREFIX),
@@ -57,6 +59,7 @@ fn parse_required_header(input: &[u8]) -> IResult<&[u8], RequiredHeader> {
     )(input)
 }
 
+/// Parse the optional extra bytes after the required portion of the header.
 fn parse_optional_header(address_family: AddressFamily, address_length: u16) -> impl Fn(&[u8]) -> IResult<&[u8], OptionalHeader>
 {
     move |input: &[u8]| {
@@ -67,6 +70,8 @@ fn parse_optional_header(address_family: AddressFamily, address_length: u16) -> 
     }
 }
 
+/// Create a parser that parses addresses from the input depending on the address family and address length.
+/// TODO: Also consider protocol as Stream and UDP require a port, but Unspecified does not.
 fn parse_addresses(address_family: AddressFamily, address_length: u16) -> impl Fn(&[u8]) -> IResult<&[u8], Addresses> {
     move |input: &[u8]| {
         match address_family {
@@ -78,6 +83,7 @@ fn parse_addresses(address_family: AddressFamily, address_length: u16) -> impl F
     }
 }
 
+/// Consume the specified bytes from the input, ignoring all consumed bytes.
 fn parse_unspecified(address_length: u16) -> impl Fn(&[u8]) -> IResult<&[u8], Addresses> {
     move |input: &[u8]| map(take(address_length), |_| (Address::None, Address::None))(input)
 }
@@ -102,10 +108,12 @@ fn parse_tlv(input: &[u8]) -> IResult<&[u8], Tlv> {
     )(input)
 }
 
+/// Parse a Unix address path of 108 bytes.
 fn parse_unix_address(input: &[u8]) -> IResult<&[u8], Vec<u8>> {
     count(be_u8, 108)(input)
 }
 
+/// Parse a pair of Unix address paths.
 fn parse_unix_address_pairs(input: &[u8]) -> IResult<&[u8], Addresses> {
     map_res(
         pair(parse_unix_address, parse_unix_address),
@@ -225,7 +233,7 @@ mod tests {
         assert_eq!(parse_v2_header(&input[..]), Ok((&[][..], Header::new(
             Version::Two,
             Command::Proxy,
-            Protocol::Unspecified, // TODO: do not assume TCP with IP.
+            Protocol::Unspecified,
             vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
             (80, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
             (443, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1]).into(),
