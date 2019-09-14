@@ -31,6 +31,32 @@ type OptionalHeader = ((Address, Address), Vec<Tlv>);
 
 /// Parse the first 16 bytes of the protocol header; the only required payload.
 /// The 12 byte signature and 4 bytes used to describe the connection and header information.
+///
+/// # Examples
+/// TCP over IPv4 with some TLVs
+/// ```rust
+/// let mut input: Vec<u8> = Vec::new();
+///
+/// input.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
+/// input.push(0x21);
+/// input.push(0x20);
+/// input.extend(&[0, 45]);
+/// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
+/// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF1]);
+/// input.extend(&[0, 80]);
+/// input.extend(&[1, 187]);
+/// input.extend(&[1, 0, 1, 5]);
+/// input.extend(&[2, 0, 2, 5, 5]);
+///
+/// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[][..], ppp::model::Header::new(
+///     ppp::model::Version::Two,
+///     ppp::model::Command::Proxy,
+///     ppp::model::Protocol::Unspecified,
+///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
+///     (80, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
+///     (443, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1]).into(),
+/// ))))
+/// ```
 pub fn parse_v2_header(input: &[u8]) -> IResult<&[u8], Header> {
     flat_map(
         parse_required_header,
