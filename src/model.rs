@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::slice::Iter;
 
 /// The version of the proxy protocol header.
@@ -87,61 +88,43 @@ impl Tlv {
     }
 }
 
-/// An Internet Protocol address in bytes.
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
-pub enum IpAddress {
-    V4([u8; 4]),
-    V6([u16; 8]),
-}
-
-impl From<[u8; 4]> for IpAddress {
-    fn from(address: [u8; 4]) -> Self {
-        IpAddress::V4(address)
-    }
-}
-
-impl From<[u16; 8]> for IpAddress {
-    fn from(address: [u16; 8]) -> Self {
-        IpAddress::V6(address)
-    }
-}
-
 /// An reference to a destination; either remote or local.
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+/// Unix addresses must be 108 bytes.
+/// A none address means no address was found, this is done to avoid unwrapping an optional and then an address.
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Address {
-    InternetProtocol {
-        address: IpAddress,
+    IPv4 {
+        address: [u8; 4],
         port: u16,
     },
-    Unix//([u32; 27]),
-}
-
-impl Address {
-    /// Create a new instance of an address.
-    /// If the address is not valid, returns an error.
-    pub fn new_unix(bytes: &[u8]) -> Result<Address, ()> {
-        match bytes.len() {
-            108 => Ok(Address::Unix),
-            _ => Err(())
-        }
-    }
+    IPv6 {
+        address: [u16; 8],
+        port: u16,
+    },
+    Unix(Vec<u8>),
+    None
 }
 
 impl From<(u16, [u8; 4])> for Address {
     fn from((port, address): (u16, [u8; 4])) -> Self {
-        Address::InternetProtocol { port, address: address.into() }
+        Address::IPv4 { port, address }
     }
 }
 
 impl From<(u16, [u16; 8])> for Address {
     fn from((port, address): (u16, [u16; 8])) -> Self {
-        Address::InternetProtocol { port, address: address.into() }
+        Address::IPv6 { port, address }
     }
 }
 
-impl From<[u8; 128]> for Address {
-    fn from(_path: [u8; 128]) -> Self {
-        Address::Unix
+impl TryFrom<Vec<u8>> for Address {
+    type Error = &'static str;
+
+    fn try_from(path: Vec<u8>) -> Result<Self, Self::Error> {
+        match path.len() {
+            108 => Ok(Address::Unix(path)),
+            _ => Err("Unix address must be exactly 108 bytes long.")
+        }
     }
 }
 
@@ -150,10 +133,10 @@ impl From<[u8; 128]> for Address {
 pub struct Header {
     version: Version,
     command: Command,
-    protocol: Option<Protocol>,
+    protocol: Protocol,
     tlvs: Vec<Tlv>,
-    source_address: Option<Address>,
-    destination_address: Option<Address>,
+    source_address: Address,
+    destination_address: Address,
 }
 
 impl Header {
@@ -161,10 +144,10 @@ impl Header {
     pub fn new(
         version: Version,
         command: Command,
-        protocol: Option<Protocol>,
+        protocol: Protocol,
         tlvs: Vec<Tlv>,
-        source_address: Option<Address>,
-        destination_address: Option<Address>,
+        source_address: Address,
+        destination_address: Address,
     ) -> Header {
         Header {
             version,
@@ -181,10 +164,10 @@ impl Header {
         Header {
             version: Version::One,
             command: Command::Proxy,
-            protocol: None,
+            protocol: Protocol::Unspecified,
             tlvs: vec![],
-            source_address: None,
-            destination_address: None,
+            source_address: Address::None,
+            destination_address: Address::None,
         }
     }
 
@@ -196,12 +179,29 @@ impl Header {
         Header {
             version: Version::One,
             command: Command::Proxy,
-            protocol: Some(Protocol::Stream),
+            protocol: Protocol::Stream,
             tlvs: vec![],
-            source_address: Some(source_address),
-            destination_address: Some(destination_address),
+            source_address: source_address,
+            destination_address: destination_address,
         }
     }
+
+    /// Create a new instance of a header.
+    pub fn no_address(
+        version: Version,
+        command: Command,
+        protocol: Protocol,
+    ) -> Header {
+        Header {
+            version,
+            command,
+            protocol,
+            tlvs: vec![],
+            source_address: Address::None,
+            destination_address: Address::None,
+        }
+    }
+
 
     /// The version of the parsed header.
     pub fn version(&self) -> &Version {
@@ -209,8 +209,8 @@ impl Header {
     }
 
     /// The command of the parsed header.
-    pub fn protocol(&self) -> Option<&Protocol> {
-        self.protocol.as_ref()
+    pub fn protocol(&self) -> &Protocol {
+        &self.protocol
     }
 
     /// The command of the parsed header.
@@ -224,18 +224,20 @@ impl Header {
     }
 
     /// The source address of the client connected to the proxy.
-    pub fn source_address(&self) -> Option<&Address> {
-        self.source_address.as_ref()
+    pub fn source_address(&self) -> &Address {
+        &self.source_address
     }
 
     /// The destination address of the server connected to by the proxy.
-    pub fn destination_address(&self) -> Option<&Address> {
-        self.destination_address.as_ref()
+    pub fn destination_address(&self) -> &Address {
+        &self.destination_address
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::iter;
+
     use super::*;
 
     #[test]
@@ -244,18 +246,18 @@ mod tests {
         let header = Header::new(
             version.clone(),
             Command::Proxy,
-            None,
+            Protocol::Unspecified,
             vec![Tlv::new(1, vec![1, 2, 3]), Tlv::new(2, vec![1, 1])],
-            None,
-            None,
+            Address::None,
+            Address::None,
         );
         let mut iter = header.tlvs();
 
         assert_eq!(&version, header.version());
-        assert_eq!(None, header.protocol());
+        assert_eq!(&Protocol::Unspecified, header.protocol());
         assert_eq!(&Command::Proxy, header.command());
-        assert_eq!(None, header.source_address());
-        assert_eq!(None, header.destination_address());
+        assert_eq!(&Address::None, header.source_address());
+        assert_eq!(&Address::None, header.destination_address());
         assert_eq!(Some(&Tlv::new(1, vec![1, 2, 3])), iter.next());
         assert_eq!(Some(&Tlv::new(2, vec![1, 1])), iter.next());
         assert_eq!(None, iter.next());
@@ -266,10 +268,10 @@ mod tests {
         let expected = Header {
             version: Version::One,
             command: Command::Proxy,
-            protocol: None,
+            protocol: Protocol::Unspecified,
             tlvs: vec![],
-            source_address: None,
-            destination_address: None,
+            source_address: Address::None,
+            destination_address: Address::None,
         };
 
         assert_eq!(expected, Header::unknown());
@@ -280,13 +282,27 @@ mod tests {
         let expected = Header {
             version: Version::One,
             command: Command::Proxy,
-            protocol: Some(Protocol::Stream),
+            protocol: Protocol::Stream,
             tlvs: vec![],
-            source_address: Some((1, [127, 0, 0, 1]).into()),
-            destination_address: Some((2, [127, 0, 0, 2]).into()),
+            source_address: (1, [127, 0, 0, 1]).into(),
+            destination_address: (2, [127, 0, 0, 2]).into(),
         };
 
         assert_eq!(expected, Header::version_1((1, [127, 0, 0, 1]).into(), (2, [127, 0, 0, 2]).into()));
+    }
+
+    #[test]
+    fn header_no_address() {
+        let expected = Header {
+            version: Version::Two,
+            command: Command::Proxy,
+            protocol: Protocol::Stream,
+            tlvs: vec![],
+            source_address: Address::None,
+            destination_address: Address::None,
+        };
+
+        assert_eq!(expected, Header::no_address(Version::Two, Command::Proxy, Protocol::Stream));
     }
 
     #[test]
@@ -321,27 +337,23 @@ mod tests {
     }
 
     #[test]
-    fn ip_address() {
-        assert_eq!(IpAddress::V4([127, 0, 0, 1]), [127, 0, 0, 1].into());
-        assert_eq!(
-            IpAddress::V6([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]),
-            [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF].into()
-        );
-    }
-
-    #[test]
     fn address() {
-        assert_eq!(Ok(Address::Unix), Address::new_unix(&[0; 108][..]));
+        assert_eq!(Ok(Address::Unix(zeros(108))), Address::try_from(zeros(108)));
+        assert!(Address::try_from(zeros(107)).is_err());
         assert_eq!(
-            Address::InternetProtocol {
-                address: IpAddress::V4([127, 0, 0, 1]),
+            Address::IPv4 {
+                address: [127, 0, 0, 1],
                 port: 3456,
             },
             (3456u16, [127u8, 0u8, 0u8, 1u8]).into()
         );
         assert_eq!(
-            Address::InternetProtocol { address: IpAddress::V6([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]), port: 12345 },
+            Address::IPv6 { address: [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], port: 12345 },
             (12345u16, [0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16]).into()
         );
+    }
+
+    fn zeros(size: usize) -> Vec<u8> {
+        iter::repeat(0).take(size).collect()
     }
 }

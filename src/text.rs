@@ -1,18 +1,17 @@
 extern crate test;
 
-use nom::{InputLength, IResult};
 use nom::branch::alt;
 use nom::bytes;
 use nom::bytes::complete::{tag, take_while_m_n};
 use nom::bytes::streaming::take_until;
-use nom::character::complete::{digit1, hex_digit1};
+use nom::character::complete::digit1;
 use nom::character::is_hex_digit;
 use nom::combinator::{all_consuming, map, map_parser, map_res, opt, verify};
-use nom::error::ParseError;
+use nom::IResult;
 use nom::multi::separated_nonempty_list;
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
 
-use crate::model::{Address, Command, Header, Protocol, Version};
+use crate::model::{Address, Header};
 
 /// Parse a group of 4 hexadecimal characters as a string slice.
 fn parse_hexadecimal(input: &[u8]) -> IResult<&[u8], &str> {
@@ -82,7 +81,7 @@ fn parse_tcp<O, F>(protocol_family: &'static str, parse_ip_address: F) -> impl F
                           |((source_address, destination_address), (source_port, destination_port))| {
                               Header::version_1(
                                   (source_port, source_address).into(),
-                                  (source_port, destination_address).into(),
+                                  (destination_port, destination_address).into(),
                               )
                           },
         ))(input)
@@ -179,8 +178,6 @@ pub fn parse_v1_header(input: &[u8]) -> IResult<&[u8], Header> {
 
 #[cfg(test)]
 mod tests {
-    use crate::model::Address;
-
     use super::*;
     use super::test::Bencher;
 
@@ -196,24 +193,32 @@ mod tests {
     }
 
     #[test]
-    fn parse_incomplete() {
+    fn parse_partial() {
+        let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535".as_bytes();
+
+        assert!(parse_v1_header(text).unwrap_err().is_incomplete());
+    }
+
+
+    #[test]
+    fn parse_invalid() {
         let text = "PROXY \r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_tcp4_invalid() {
         let text = "PROXY TCP4 255.255.255.255 256.255.255.255 65535 65535\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_tcp4_leading_zeroes() {
         let text = "PROXY TCP4 255.0255.255.255 255.255.255.255 65535 65535\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
@@ -238,14 +243,14 @@ mod tests {
     fn parse_tcp6_invalid() {
         let text = "PROXY TCP6 ffff:gggg:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_tcp6_leading_zeroes() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:0ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
@@ -273,35 +278,22 @@ mod tests {
     #[test]
     fn parse_tcp6_wildcard() {
         let text = "PROXY TCP6 :: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
-        let expected = Header::version_1(
-            (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
-            (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
-        );
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_tcp6_implied() {
         let text = "PROXY TCP6 ffff:: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
-        let address: Address = (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into();
-        let expected = Header::new(
-            Version::One,
-            Command::Proxy,
-            Some(Protocol::Stream),
-            vec![],
-            Some(address.clone()),
-            Some(address),
-        );
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_tcp6_over_shortened() {
         let text = "PROXY TCP6 ffff::ffff:ffff:ffff:ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
@@ -315,91 +307,91 @@ mod tests {
     fn parse_leading_zeroes_in_source_port() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 05535 65535\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_leading_zeroes_in_destination_port() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 05535\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_source_port_too_large() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65536 65535\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_destination_port_too_large() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65536\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_lowercase_proxy() {
         let text = "proxy UNKNOWN\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_lowercase_protocol_family() {
         let text = "PROXY tcp4\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_too_long() {
         let text = "PROXY UNKNOWN ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535  \r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_more_than_one_space() {
         let text = "PROXY  TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_more_than_one_space_source_address() {
         let text = "PROXY TCP4  255.255.255.255 255.255.255.255 65535 65535\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_more_than_one_space_destination_address() {
         let text = "PROXY TCP4 255.255.255.255  255.255.255.255 65535 65535\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_more_than_one_space_source_port() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255  65535 65535\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_more_than_one_space_destination_port() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535  65535\r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_more_than_one_space_end() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535 \r\n".as_bytes();
 
-        assert!(parse_v1_header(text).is_err());
+        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[bench]
