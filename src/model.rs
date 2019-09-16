@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::fmt::{Display, Error, Formatter};
 use std::slice::Iter;
 
 /// The version of the proxy protocol header.
@@ -103,6 +104,55 @@ pub enum Address {
     },
     Unix(Vec<u8>),
     None,
+}
+
+impl Address {
+    /// A predicate to test if the address is not the `IPv4` variant.
+    pub fn is_ipv4(&self) -> bool {
+        match self {
+            Address::IPv4 { .. } => true,
+            _ => false,
+        }
+    }
+
+    /// A predicate to test if the address is not the `IPv6` variant.
+    pub fn is_ipv6(&self) -> bool {
+        match self {
+            Address::IPv6 { .. } => true,
+            _ => false,
+        }
+    }
+
+    /// A predicate to test if the address is the `Unix` variant.
+    pub fn is_unix(&self) -> bool {
+        match self {
+            Address::Unix(_) => true,
+            _ => false,
+        }
+    }
+
+    /// A predicate to test if the address is not the `None` variant.
+    pub fn is_present(&self) -> bool {
+        match self {
+            Address::None => false,
+            _ => true,
+        }
+    }
+
+    /// The port of this address if one is set.
+    pub fn port(&self) -> Result<u16, ()> {
+        match self {
+            Address::IPv4 {
+                address: _,
+                port: Some(port),
+            } => Ok(*port),
+            Address::IPv6 {
+                address: _,
+                port: Some(port),
+            } => Ok(*port),
+            _ => Err(()),
+        }
+    }
 }
 
 impl From<[u8; 4]> for Address {
@@ -250,6 +300,86 @@ impl Header {
     }
 }
 
+impl Display for Address {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            Address::IPv4 {
+                address,
+                port: Some(_),
+            } => write!(
+                f,
+                "{}.{}.{}.{}",
+                address[0], address[1], address[2], address[3]
+            )?,
+            Address::IPv6 {
+                address,
+                port: Some(_),
+            } => write!(
+                f,
+                "{:04X}:{:04X}:{:04X}:{:04X}:{:04X}:{:04X}:{:04X}:{:04X}",
+                address[0],
+                address[1],
+                address[2],
+                address[3],
+                address[4],
+                address[5],
+                address[6],
+                address[7]
+            )?,
+            _ => Err(Error)?,
+        }
+
+        Ok(())
+    }
+}
+
+/// Prints the header as a version 1 header.
+impl Display for Header {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        if Version::One != self.version {
+            return Err(Error);
+        }
+
+        if Command::Proxy != self.command {
+            return Err(Error);
+        }
+
+        if !self.tlvs.is_empty() {
+            return Err(Error);
+        }
+
+        let protocol = match self.protocol() {
+            Protocol::Stream => {
+                if self.source_address().is_ipv4() && self.destination_address().is_ipv4() {
+                    Ok("TCP4")
+                } else if self.source_address().is_ipv6() && self.destination_address().is_ipv6() {
+                    Ok("TCP6")
+                } else {
+                    Err(Error)
+                }
+            }
+            Protocol::Unspecified => Ok("UNKNOWN"),
+            _ => Err(Error),
+        };
+
+        if Protocol::Unspecified == self.protocol {
+            write!(f, "PROXY {}\r\n", protocol?)?;
+        } else {
+            write!(
+                f,
+                "PROXY {} {} {} {} {}\r\n",
+                protocol?,
+                self.source_address,
+                self.destination_address,
+                self.source_address.port().map_err(|_| Error)?,
+                self.destination_address.port().map_err(|_| Error)?,
+            )?;
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::iter;
@@ -307,6 +437,172 @@ mod tests {
         assert_eq!(
             expected,
             Header::version_1(([127, 0, 0, 1], 1).into(), ([127, 0, 0, 2], 2).into())
+        );
+    }
+
+    #[test]
+    fn header_version1_display() {
+        assert_eq!(
+            "PROXY TCP4 127.0.0.1 127.0.0.2 1 2\r\n",
+            format!(
+                "{}",
+                Header::version_1(([127, 0, 0, 1], 1).into(), ([127, 0, 0, 2], 2).into())
+            )
+            .as_str()
+        );
+    }
+
+    #[test]
+    fn header_version1_ipv6_display() {
+        let source_address = (
+            [
+                0x0123, 0x4567, 0x890A, 0xBCDE, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+            ],
+            80,
+        )
+            .into();
+        let destination_address = (
+            [
+                0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0123, 0x4567, 0x890A, 0xBCDE,
+            ],
+            443,
+        )
+            .into();
+
+        assert_eq!(
+            "PROXY TCP6 0123:4567:890A:BCDE:FFFF:FFFF:FFFF:FFFF FFFF:FFFF:FFFF:FFFF:0123:4567:890A:BCDE 80 443\r\n",
+            format!("{}", Header::version_1(source_address, destination_address)).as_str()
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn header_port_less_display() {
+        let source_address = [
+            0x0123, 0x4567, 0x890A, 0xBCDE, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+        ]
+        .into();
+        let destination_address = [
+            0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0123, 0x4567, 0x890A, 0xBCDE,
+        ]
+        .into();
+
+        format!("{}", Header::version_1(source_address, destination_address));
+    }
+
+    #[test]
+    #[should_panic]
+    fn header_bad_command_display() {
+        let source_address = [
+            0x0123, 0x4567, 0x890A, 0xBCDE, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+        ]
+        .into();
+        let destination_address = [
+            0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0123, 0x4567, 0x890A, 0xBCDE,
+        ]
+        .into();
+
+        format!(
+            "{}",
+            Header {
+                version: Version::One,
+                command: Command::Local,
+                protocol: Protocol::Stream,
+                tlvs: vec![],
+                source_address,
+                destination_address,
+            }
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn header_bad_tlv_display() {
+        let source_address = [
+            0x0123, 0x4567, 0x890A, 0xBCDE, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+        ]
+        .into();
+        let destination_address = [
+            0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0123, 0x4567, 0x890A, 0xBCDE,
+        ]
+        .into();
+
+        format!(
+            "{}",
+            Header {
+                version: Version::One,
+                command: Command::Proxy,
+                protocol: Protocol::Stream,
+                tlvs: vec![Tlv::new(1, vec![])],
+                source_address,
+                destination_address,
+            }
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn header_bad_protocol_display() {
+        let source_address = [
+            0x0123, 0x4567, 0x890A, 0xBCDE, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+        ]
+        .into();
+        let destination_address = [
+            0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0123, 0x4567, 0x890A, 0xBCDE,
+        ]
+        .into();
+
+        format!(
+            "{}",
+            Header {
+                version: Version::One,
+                command: Command::Proxy,
+                protocol: Protocol::Datagram,
+                tlvs: vec![],
+                source_address,
+                destination_address,
+            }
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn header_mismatch_address_display() {
+        let source_address = [127, 0, 0, 1].into();
+        let destination_address = [
+            0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0123, 0x4567, 0x890A, 0xBCDE,
+        ]
+        .into();
+
+        format!("{}", Header::version_1(source_address, destination_address));
+    }
+
+    #[test]
+    #[should_panic]
+    fn header_mismatch_address_reversed_display() {
+        let source_address = [
+            0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x0123, 0x4567, 0x890A, 0xBCDE,
+        ]
+        .into();
+        let destination_address = [127, 0, 0, 1].into();
+
+        format!("{}", Header::version_1(source_address, destination_address));
+    }
+
+    #[test]
+    #[should_panic]
+    fn version_2_display() {
+        format!(
+            "{}",
+            Header::no_address(Version::Two, Command::Proxy, Protocol::Stream)
+        );
+    }
+
+    #[test]
+    fn header_unknown_display() {
+        assert_eq!(
+            "PROXY UNKNOWN\r\n",
+            format!("{}", Header::unknown()).as_str()
         );
     }
 
@@ -379,7 +675,7 @@ mod tests {
         assert_eq!(
             Address::IPv6 {
                 address: [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
-                port: Some(12345)
+                port: Some(12345),
             },
             (
                 [
@@ -393,7 +689,7 @@ mod tests {
         assert_eq!(
             Address::IPv6 {
                 address: [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1],
-                port: None
+                port: None,
             },
             [
                 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16,
@@ -401,6 +697,39 @@ mod tests {
             ]
             .into()
         );
+    }
+
+    #[test]
+    fn address_predicates() {
+        let unix = Address::Unix(zeros(108));
+
+        assert!(unix.is_unix());
+        assert!(unix.is_present());
+        assert!(!unix.is_ipv4());
+        assert!(!unix.is_ipv6());
+
+        let ipv4 = Address::IPv4 {
+            address: [127, 0, 0, 2],
+            port: None,
+        };
+
+        assert!(!ipv4.is_unix());
+        assert!(ipv4.is_present());
+        assert!(ipv4.is_ipv4());
+        assert!(!ipv4.is_ipv6());
+
+        let ipv6 = Address::IPv6 {
+            address: [
+                0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16,
+                0xFFFFu16,
+            ],
+            port: None,
+        };
+
+        assert!(!ipv6.is_unix());
+        assert!(ipv6.is_present());
+        assert!(!ipv6.is_ipv4());
+        assert!(ipv6.is_ipv6());
     }
 
     fn zeros(size: usize) -> Vec<u8> {

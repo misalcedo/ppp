@@ -195,7 +195,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_tcp4_connection() {
+    fn tcp4() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n".as_bytes();
         let expected = Header::version_1(
             ([255, 255, 255, 255], 65535).into(),
