@@ -28,8 +28,8 @@ pub mod model;
 /// Version 1 TCP4
 /// ```rust
 /// assert_eq!(ppp::parse_header(b"PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n"), Ok((&[][..], ppp::model:: Header::version_1(
-///            (65535, [255, 255, 255, 255]).into(),
-///            (65535, [255, 255, 255, 255]).into(),
+///            ([255, 255, 255, 255], 65535).into(),
+///            ([255, 255, 255, 255], 65535).into(),
 ///        ))));
 /// ```
 ///
@@ -53,8 +53,8 @@ pub mod model;
 ///     ppp::model::Command::Proxy,
 ///     ppp::model::Protocol::Unspecified,
 ///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
-///     (80, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
-///     (443, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1]).into(),
+///     ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 80).into(),
+///     ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1], 443).into(),
 /// ))))
 /// ```
 pub fn parse_header(input: &[u8]) -> IResult<&[u8], Header> {

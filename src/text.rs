@@ -69,7 +69,7 @@ fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
 fn parse_tcp<O, F>(protocol_family: &'static str, parse_ip_address: F) -> impl Fn(&[u8]) -> IResult<&[u8], Header>
     where
         F: Fn(&[u8]) -> IResult<&[u8], O>,
-        (u16, O): Into<Address>
+        (O, u16): Into<Address>
 {
     move |input: &[u8]| {
         all_consuming(map(preceded(
@@ -80,8 +80,8 @@ fn parse_tcp<O, F>(protocol_family: &'static str, parse_ip_address: F) -> impl F
         ),
                           |((source_address, destination_address), (source_port, destination_port))| {
                               Header::version_1(
-                                  (source_port, source_address).into(),
-                                  (destination_port, destination_address).into(),
+                                  (source_address, source_port).into(),
+                                  (destination_address, destination_port).into(),
                               )
                           },
         ))(input)
@@ -153,16 +153,16 @@ fn parse_unknown(input: &[u8]) -> IResult<&[u8], Header> {
 /// TCP4
 /// ```rust
 /// assert_eq!(ppp::text::parse_v1_header(b"PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n"), Ok((&[][..], ppp::model:: Header::version_1(
-///            (65535, [255, 255, 255, 255]).into(),
-///            (65535, [255, 255, 255, 255]).into(),
+///            ([255, 255, 255, 255], 65535).into(),
+///            ([255, 255, 255, 255], 65535).into(),
 ///        ))));
 /// ```
 ///
 /// TCP6
 /// ```rust
 /// assert_eq!(ppp::text::parse_v1_header(b"PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n"), Ok((&[][..], ppp::model:: Header::version_1(
-///            (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
-///            (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
+///            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
+///            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
 ///        ))));
 /// ```
 pub fn parse_v1_header(input: &[u8]) -> IResult<&[u8], Header> {
@@ -185,8 +185,8 @@ mod tests {
     fn parse_tcp4_connection() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n".as_bytes();
         let expected = Header::version_1(
-            (65535, [255, 255, 255, 255]).into(),
-            (65535, [255, 255, 255, 255]).into(),
+            ([255, 255, 255, 255], 65535).into(),
+            ([255, 255, 255, 255], 65535).into(),
         );
 
         assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
@@ -232,8 +232,8 @@ mod tests {
     fn parse_tcp6_connection() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
         let expected = Header::version_1(
-            (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
-            (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
+            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
+            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
         );
 
         assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
@@ -257,8 +257,8 @@ mod tests {
     fn parse_tcp6_shortened_connection() {
         let text = "PROXY TCP6 ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
         let expected = Header::version_1(
-            (65535, [0xFFFF, 0, 0, 0, 0, 0, 0, 0xFFFF]).into(),
-            (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
+            ([0xFFFF, 0, 0, 0, 0, 0, 0, 0xFFFF], 65535).into(),
+            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
         );
 
         assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
@@ -268,8 +268,8 @@ mod tests {
     fn parse_tcp6_single_zero() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff::ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
         let expected = Header::version_1(
-            (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
-            (65535, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
+            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
+            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
         );
 
         assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));

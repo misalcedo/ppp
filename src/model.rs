@@ -95,25 +95,37 @@ impl Tlv {
 pub enum Address {
     IPv4 {
         address: [u8; 4],
-        port: u16,
+        port: Option<u16>,
     },
     IPv6 {
         address: [u16; 8],
-        port: u16,
+        port: Option<u16>,
     },
     Unix(Vec<u8>),
     None
 }
 
-impl From<(u16, [u8; 4])> for Address {
-    fn from((port, address): (u16, [u8; 4])) -> Self {
-        Address::IPv4 { port, address }
+impl From<[u8; 4]> for Address {
+    fn from(address: [u8; 4]) -> Self {
+        Address::IPv4 { port: None, address }
     }
 }
 
-impl From<(u16, [u16; 8])> for Address {
-    fn from((port, address): (u16, [u16; 8])) -> Self {
-        Address::IPv6 { port, address }
+impl From<([u8; 4], u16)> for Address {
+    fn from((address, port): ([u8; 4], u16)) -> Self {
+        Address::IPv4 { port: Some(port), address }
+    }
+}
+
+impl From<[u16; 8]> for Address {
+    fn from(address: [u16; 8]) -> Self {
+        Address::IPv6 { port: None, address }
+    }
+}
+
+impl From<([u16; 8], u16)> for Address {
+    fn from((address, port): ([u16; 8], u16)) -> Self {
+        Address::IPv6 { port: Some(port), address }
     }
 }
 
@@ -181,8 +193,8 @@ impl Header {
             command: Command::Proxy,
             protocol: Protocol::Stream,
             tlvs: vec![],
-            source_address: source_address,
-            destination_address: destination_address,
+            source_address,
+            destination_address,
         }
     }
 
@@ -284,11 +296,11 @@ mod tests {
             command: Command::Proxy,
             protocol: Protocol::Stream,
             tlvs: vec![],
-            source_address: (1, [127, 0, 0, 1]).into(),
-            destination_address: (2, [127, 0, 0, 2]).into(),
+            source_address: ([127, 0, 0, 1], 1).into(),
+            destination_address: ([127, 0, 0, 2], 2).into(),
         };
 
-        assert_eq!(expected, Header::version_1((1, [127, 0, 0, 1]).into(), (2, [127, 0, 0, 2]).into()));
+        assert_eq!(expected, Header::version_1(([127, 0, 0, 1], 1).into(), ([127, 0, 0, 2], 2).into()));
     }
 
     #[test]
@@ -343,13 +355,24 @@ mod tests {
         assert_eq!(
             Address::IPv4 {
                 address: [127, 0, 0, 1],
-                port: 3456,
+                port: Some(3456),
             },
-            (3456u16, [127u8, 0u8, 0u8, 1u8]).into()
+            ([127u8, 0u8, 0u8, 1u8], 3456u16).into()
         );
         assert_eq!(
-            Address::IPv6 { address: [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], port: 12345 },
-            (12345u16, [0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16]).into()
+            Address::IPv4 {
+                address: [127, 0, 0, 2],
+                port: None,
+            },
+            [127u8, 0u8, 0u8, 2u8].into()
+        );
+        assert_eq!(
+            Address::IPv6 { address: [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], port: Some(12345) },
+            ([0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16], 12345u16).into()
+        );
+        assert_eq!(
+            Address::IPv6 { address: [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1], port: None },
+            [0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFF1u16].into()
         );
     }
 

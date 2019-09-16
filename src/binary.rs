@@ -53,8 +53,8 @@ type OptionalHeader = ((Address, Address), Vec<Tlv>);
 ///     ppp::model::Command::Proxy,
 ///     ppp::model::Protocol::Unspecified,
 ///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
-///     (80, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
-///     (443, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1]).into(),
+///     ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 80).into(),
+///     ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1], 443).into(),
 /// ))))
 /// ```
 pub fn parse_v2_header(input: &[u8]) -> IResult<&[u8], Header> {
@@ -159,13 +159,14 @@ fn parse_ipv4_address(input: &[u8]) -> IResult<&[u8], [u8; 4]> {
 fn parse_ip_address_pair<O, F>(parse_ip_address: F) -> impl Fn(&[u8]) -> IResult<&[u8], Addresses>
     where
         F: Fn(&[u8]) -> IResult<&[u8], O>,
-        (u16, O): Into<Address>
+        O: Into<Address>,
+        (O, u16): Into<Address>
 {
     move |input: &[u8]| {
         map(
             pair(pair(&parse_ip_address, &parse_ip_address), pair(parse_port, parse_port)),
             |((source_address, destination_address), (source_port, destination_port))| {
-                ((source_port, source_address).into(), (destination_port, destination_address).into())
+                ((source_address, source_port).into(), (destination_address, destination_port).into())
             },
         )(input)
     }
@@ -237,8 +238,8 @@ mod tests {
             Command::Proxy,
             Protocol::Stream,
             vec![],
-            (80, [127, 0, 0, 1]).into(),
-            (443, [127, 0, 0, 2]).into(),
+            ([127, 0, 0, 1], 80).into(),
+            ([127, 0, 0, 2], 443).into(),
         ))));
     }
 
@@ -262,8 +263,8 @@ mod tests {
             Command::Proxy,
             Protocol::Unspecified,
             vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
-            (80, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF]).into(),
-            (443, [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1]).into(),
+            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 80).into(),
+            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1], 443).into(),
         ))))
     }
 
