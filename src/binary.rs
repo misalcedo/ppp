@@ -302,16 +302,28 @@ fn parse_version_command(input: &[u8]) -> IResult<&[u8], (Version, Command)> {
 /// The lowest 4 bits are the transport protocol.
 fn parse_family_protocol(input: &[u8]) -> IResult<&[u8], (AddressFamily, Protocol)> {
     alt((
-        map(tag(b"\x00"), |_| (AddressFamily::Unspecified, Protocol::Unspecified)),
-        map(tag(b"\x01"), |_| (AddressFamily::Unspecified, Protocol::Stream)),
-        map(tag(b"\x02"), |_| (AddressFamily::Unspecified, Protocol::Datagram)),
-        map(tag(b"\x10"), |_| (AddressFamily::IPv4, Protocol::Unspecified)),
+        map(tag(b"\x00"), |_| {
+            (AddressFamily::Unspecified, Protocol::Unspecified)
+        }),
+        map(tag(b"\x01"), |_| {
+            (AddressFamily::Unspecified, Protocol::Stream)
+        }),
+        map(tag(b"\x02"), |_| {
+            (AddressFamily::Unspecified, Protocol::Datagram)
+        }),
+        map(tag(b"\x10"), |_| {
+            (AddressFamily::IPv4, Protocol::Unspecified)
+        }),
         map(tag(b"\x11"), |_| (AddressFamily::IPv4, Protocol::Stream)),
         map(tag(b"\x12"), |_| (AddressFamily::IPv4, Protocol::Datagram)),
-        map(tag(b"\x20"), |_| (AddressFamily::IPv6, Protocol::Unspecified)),
+        map(tag(b"\x20"), |_| {
+            (AddressFamily::IPv6, Protocol::Unspecified)
+        }),
         map(tag(b"\x21"), |_| (AddressFamily::IPv6, Protocol::Stream)),
         map(tag(b"\x22"), |_| (AddressFamily::IPv6, Protocol::Datagram)),
-        map(tag(b"\x30"), |_| (AddressFamily::Unix, Protocol::Unspecified)),
+        map(tag(b"\x30"), |_| {
+            (AddressFamily::Unix, Protocol::Unspecified)
+        }),
         map(tag(b"\x31"), |_| (AddressFamily::Unix, Protocol::Stream)),
         map(tag(b"\x32"), |_| (AddressFamily::Unix, Protocol::Datagram)),
     ))(input)
