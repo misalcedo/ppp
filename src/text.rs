@@ -7,9 +7,9 @@ use nom::bytes::streaming::take_until;
 use nom::character::complete::digit1;
 use nom::character::is_hex_digit;
 use nom::combinator::{all_consuming, map, map_parser, map_res, opt, verify};
-use nom::IResult;
 use nom::multi::separated_nonempty_list;
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
+use nom::IResult;
 
 use crate::model::{Address, Header};
 
@@ -26,37 +26,42 @@ fn parse_ipv6_group(input: &[u8]) -> IResult<&[u8], Option<u16>> {
 /// Parse a text IPv6 address.
 fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
     map(
-        verify(separated_nonempty_list(tag(":"), parse_ipv6_group), |groups: &Vec<Option<u16>>| {
-            let all_present = groups.iter().filter(|x| x.is_some()).count() == 8;
+        verify(
+            separated_nonempty_list(tag(":"), parse_ipv6_group),
+            |groups: &Vec<Option<u16>>| {
+                let all_present = groups.iter().filter(|x| x.is_some()).count() == 8;
 
-            all_present || {
-                let bounded_length = groups.len() >= 3 && groups.len() <= 8;
-                let no_more_than_one_empty_group = groups.iter().filter(|x| x.is_none()).count() <= 1;
-                let starts_with_some = groups[0].is_some();
-                let ends_with_some = groups[groups.len() - 1].is_some();
+                all_present || {
+                    let bounded_length = groups.len() >= 3 && groups.len() <= 8;
+                    let no_more_than_one_empty_group =
+                        groups.iter().filter(|x| x.is_none()).count() <= 1;
+                    let starts_with_some = groups[0].is_some();
+                    let ends_with_some = groups[groups.len() - 1].is_some();
 
-                bounded_length && starts_with_some && ends_with_some && no_more_than_one_empty_group
-            }
-        }),
+                    bounded_length
+                        && starts_with_some
+                        && ends_with_some
+                        && no_more_than_one_empty_group
+                }
+            },
+        ),
         |groups| {
             let mut address: [u16; 8] = [0; 8];
             let mut index = 0;
 
-            groups.iter().for_each(|group| {
-                match group {
-                    Some(a) => {
-                        address[index] = *a;
-                        index += 1;
-                    }
-                    None => {
-                        let none_len = 8 - groups.iter().filter(|x| x.is_some()).count();
+            groups.iter().for_each(|group| match group {
+                Some(a) => {
+                    address[index] = *a;
+                    index += 1;
+                }
+                None => {
+                    let none_len = 8 - groups.iter().filter(|x| x.is_some()).count();
 
-                        for offset in 0..none_len {
-                            address[index + offset] = 0;
-                        }
-
-                        index += none_len;
+                    for offset in 0..none_len {
+                        address[index + offset] = 0;
                     }
+
+                    index += none_len;
                 }
             });
 
@@ -66,24 +71,32 @@ fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
 }
 
 /// Parse a header with the TCP protocol and a generic address family.
-fn parse_tcp<O, F>(protocol_family: &'static str, parse_ip_address: F) -> impl Fn(&[u8]) -> IResult<&[u8], Header>
-    where
-        F: Fn(&[u8]) -> IResult<&[u8], O>,
-        (O, u16): Into<Address>
+fn parse_tcp<O, F>(
+    protocol_family: &'static str,
+    parse_ip_address: F,
+) -> impl Fn(&[u8]) -> IResult<&[u8], Header>
+where
+    F: Fn(&[u8]) -> IResult<&[u8], O>,
+    (O, u16): Into<Address>,
 {
     move |input: &[u8]| {
-        all_consuming(map(preceded(
-            terminated(tag(protocol_family), tag(" ")), pair(
-                terminated(separated_pair(&parse_ip_address, tag(" "), &parse_ip_address), tag(" ")),
-                separated_pair(parse_port, tag(" "), parse_port),
+        all_consuming(map(
+            preceded(
+                terminated(tag(protocol_family), tag(" ")),
+                pair(
+                    terminated(
+                        separated_pair(&parse_ip_address, tag(" "), &parse_ip_address),
+                        tag(" "),
+                    ),
+                    separated_pair(parse_port, tag(" "), parse_port),
+                ),
             ),
-        ),
-                          |((source_address, destination_address), (source_port, destination_port))| {
-                              Header::version_1(
-                                  (source_address, source_port).into(),
-                                  (destination_address, destination_port).into(),
-                              )
-                          },
+            |((source_address, destination_address), (source_port, destination_port))| {
+                Header::version_1(
+                    (source_address, source_port).into(),
+                    (destination_address, destination_port).into(),
+                )
+            },
         ))(input)
     }
 }
@@ -118,7 +131,7 @@ fn parse_ipv4_address(input: &[u8]) -> IResult<&[u8], [u8; 4]> {
             terminated(parse_ipv4_byte, tag(".")),
             terminated(parse_ipv4_byte, tag(".")),
             terminated(parse_ipv4_byte, tag(".")),
-            parse_ipv4_byte
+            parse_ipv4_byte,
         )),
         |(a, b, c, d)| [a, b, c, d],
     )(input)
@@ -178,8 +191,8 @@ pub fn parse_v1_header(input: &[u8]) -> IResult<&[u8], Header> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::test::Bencher;
+    use super::*;
 
     #[test]
     fn parse_tcp4_connection() {
@@ -198,7 +211,6 @@ mod tests {
 
         assert!(parse_v1_header(text).unwrap_err().is_incomplete());
     }
-
 
     #[test]
     fn parse_invalid() {
@@ -232,8 +244,20 @@ mod tests {
     fn parse_tcp6_connection() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
         let expected = Header::version_1(
-            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
-            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
+            (
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                ],
+                65535,
+            )
+                .into(),
+            (
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                ],
+                65535,
+            )
+                .into(),
         );
 
         assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
@@ -255,10 +279,17 @@ mod tests {
 
     #[test]
     fn parse_tcp6_shortened_connection() {
-        let text = "PROXY TCP6 ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
+        let text = "PROXY TCP6 ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n"
+            .as_bytes();
         let expected = Header::version_1(
             ([0xFFFF, 0, 0, 0, 0, 0, 0, 0xFFFF], 65535).into(),
-            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
+            (
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                ],
+                65535,
+            )
+                .into(),
         );
 
         assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
@@ -268,8 +299,18 @@ mod tests {
     fn parse_tcp6_single_zero() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff::ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
         let expected = Header::version_1(
-            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
-            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
+            (
+                [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0, 0xFFFF, 0xFFFF, 0xFFFF],
+                65535,
+            )
+                .into(),
+            (
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                ],
+                65535,
+            )
+                .into(),
         );
 
         assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
@@ -277,14 +318,16 @@ mod tests {
 
     #[test]
     fn parse_tcp6_wildcard() {
-        let text = "PROXY TCP6 :: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
+        let text =
+            "PROXY TCP6 :: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
 
         assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }
 
     #[test]
     fn parse_tcp6_implied() {
-        let text = "PROXY TCP6 ffff:: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
+        let text =
+            "PROXY TCP6 ffff:: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
 
         assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
     }

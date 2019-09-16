@@ -15,7 +15,7 @@ impl Version {
         match version {
             1 => Ok(Version::One),
             2 => Ok(Version::Two),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -34,7 +34,7 @@ impl Command {
         match command {
             0 => Ok(Command::Local),
             1 => Ok(Command::Proxy),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -55,7 +55,7 @@ impl Protocol {
             0 => Ok(Protocol::Unspecified),
             1 => Ok(Protocol::Stream),
             2 => Ok(Protocol::Datagram),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -102,30 +102,42 @@ pub enum Address {
         port: Option<u16>,
     },
     Unix(Vec<u8>),
-    None
+    None,
 }
 
 impl From<[u8; 4]> for Address {
     fn from(address: [u8; 4]) -> Self {
-        Address::IPv4 { port: None, address }
+        Address::IPv4 {
+            port: None,
+            address,
+        }
     }
 }
 
 impl From<([u8; 4], u16)> for Address {
     fn from((address, port): ([u8; 4], u16)) -> Self {
-        Address::IPv4 { port: Some(port), address }
+        Address::IPv4 {
+            port: Some(port),
+            address,
+        }
     }
 }
 
 impl From<[u16; 8]> for Address {
     fn from(address: [u16; 8]) -> Self {
-        Address::IPv6 { port: None, address }
+        Address::IPv6 {
+            port: None,
+            address,
+        }
     }
 }
 
 impl From<([u16; 8], u16)> for Address {
     fn from((address, port): ([u16; 8], u16)) -> Self {
-        Address::IPv6 { port: Some(port), address }
+        Address::IPv6 {
+            port: Some(port),
+            address,
+        }
     }
 }
 
@@ -135,7 +147,7 @@ impl TryFrom<Vec<u8>> for Address {
     fn try_from(path: Vec<u8>) -> Result<Self, Self::Error> {
         match path.len() {
             108 => Ok(Address::Unix(path)),
-            _ => Err("Unix address must be exactly 108 bytes long.")
+            _ => Err("Unix address must be exactly 108 bytes long."),
         }
     }
 }
@@ -184,10 +196,7 @@ impl Header {
     }
 
     /// Create a new instance of a header for version 1 with an unknown address family and protocol.
-    pub fn version_1(
-        source_address: Address,
-        destination_address: Address,
-    ) -> Header {
+    pub fn version_1(source_address: Address, destination_address: Address) -> Header {
         Header {
             version: Version::One,
             command: Command::Proxy,
@@ -199,11 +208,7 @@ impl Header {
     }
 
     /// Create a new instance of a header.
-    pub fn no_address(
-        version: Version,
-        command: Command,
-        protocol: Protocol,
-    ) -> Header {
+    pub fn no_address(version: Version, command: Command, protocol: Protocol) -> Header {
         Header {
             version,
             command,
@@ -213,7 +218,6 @@ impl Header {
             destination_address: Address::None,
         }
     }
-
 
     /// The version of the parsed header.
     pub fn version(&self) -> &Version {
@@ -300,7 +304,10 @@ mod tests {
             destination_address: ([127, 0, 0, 2], 2).into(),
         };
 
-        assert_eq!(expected, Header::version_1(([127, 0, 0, 1], 1).into(), ([127, 0, 0, 2], 2).into()));
+        assert_eq!(
+            expected,
+            Header::version_1(([127, 0, 0, 1], 1).into(), ([127, 0, 0, 2], 2).into())
+        );
     }
 
     #[test]
@@ -314,7 +321,10 @@ mod tests {
             destination_address: Address::None,
         };
 
-        assert_eq!(expected, Header::no_address(Version::Two, Command::Proxy, Protocol::Stream));
+        assert_eq!(
+            expected,
+            Header::no_address(Version::Two, Command::Proxy, Protocol::Stream)
+        );
     }
 
     #[test]
@@ -367,12 +377,29 @@ mod tests {
             [127u8, 0u8, 0u8, 2u8].into()
         );
         assert_eq!(
-            Address::IPv6 { address: [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], port: Some(12345) },
-            ([0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16], 12345u16).into()
+            Address::IPv6 {
+                address: [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
+                port: Some(12345)
+            },
+            (
+                [
+                    0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16,
+                    0xFFFFu16
+                ],
+                12345u16
+            )
+                .into()
         );
         assert_eq!(
-            Address::IPv6 { address: [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1], port: None },
-            [0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFF1u16].into()
+            Address::IPv6 {
+                address: [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1],
+                port: None
+            },
+            [
+                0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16, 0xFFFFu16,
+                0xFFF1u16
+            ]
+            .into()
         );
     }
 

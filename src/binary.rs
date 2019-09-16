@@ -5,11 +5,11 @@ use std::convert::TryFrom;
 use nom::branch::alt;
 use nom::bytes::streaming::*;
 use nom::combinator::*;
-use nom::IResult;
 use nom::multi::{count, fold_many0};
 use nom::number;
 use nom::number::streaming::*;
 use nom::sequence::*;
+use nom::IResult;
 
 use crate::model::{Address, Command, Header, Protocol, Tlv, Version};
 
@@ -33,13 +33,13 @@ type OptionalHeader = ((Address, Address), Vec<Tlv>);
 /// The 12 byte signature and 4 bytes used to describe the connection and header information.
 ///
 /// # Examples
-/// TCP over IPv4 with some TLVs
+/// TCP over IPv6 with some TLVs
 /// ```rust
 /// let mut input: Vec<u8> = Vec::new();
 ///
 /// input.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
 /// input.push(0x21);
-/// input.push(0x20);
+/// input.push(0x21);
 /// input.extend(&[0, 45]);
 /// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
 /// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF1]);
@@ -51,28 +51,81 @@ type OptionalHeader = ((Address, Address), Vec<Tlv>);
 /// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[][..], ppp::model::Header::new(
 ///     ppp::model::Version::Two,
 ///     ppp::model::Command::Proxy,
-///     ppp::model::Protocol::Unspecified,
+///     ppp::model::Protocol::Stream,
 ///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
 ///     ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 80).into(),
 ///     ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1], 443).into(),
 /// ))))
 /// ```
+///
+/// UDP over IPv4 with some TLVs
+/// ```rust
+/// let mut input: Vec<u8> = Vec::new();
+///
+/// input.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
+/// input.push(0x20);
+/// input.push(0x12);
+/// input.extend(&[0, 21]);
+/// input.extend(&[127, 0, 0, 1]);
+/// input.extend(&[192, 168, 1, 1]);
+/// input.extend(&[0, 80]);
+/// input.extend(&[1, 187]);
+/// input.extend(&[1, 0, 1, 5]);
+/// input.extend(&[2, 0, 2, 5, 5]);
+///
+/// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[][..], ppp::model::Header::new(
+///     ppp::model::Version::Two,
+///     ppp::model::Command::Local,
+///     ppp::model::Protocol::Datagram,
+///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
+///     ([127, 0, 0, 1], 80).into(),
+///     ([192, 168, 1, 1], 443).into(),
+/// ))))
+/// ```
+///
+/// Unspecified protocol over IPv4 with some TLVs
+/// ```rust
+/// let mut input: Vec<u8> = Vec::new();
+///
+/// input.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
+/// input.push(0x21);
+/// input.push(0x20);
+/// input.extend(&[0, 41]);
+/// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
+/// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF1]);
+/// input.extend(&[1, 0, 1, 5]);
+/// input.extend(&[2, 0, 2, 5, 5]);
+///
+/// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[][..], ppp::model::Header::new(
+///     ppp::model::Version::Two,
+///     ppp::model::Command::Proxy,
+///     ppp::model::Protocol::Unspecified,
+///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
+///     [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF].into(),
+///     [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1].into(),
+/// ))))
+/// ```
 pub fn parse_v2_header(input: &[u8]) -> IResult<&[u8], Header> {
-    flat_map(
-        parse_required_header,
-        parse_full_header,
-    )(input)
+    flat_map(parse_required_header, parse_full_header)(input)
 }
 
 /// Parse the entire header, required an optional parts.
-fn parse_full_header(required_header: RequiredHeader) -> impl Fn(&[u8]) -> IResult<&[u8], Header>
-{
+fn parse_full_header(required_header: RequiredHeader) -> impl Fn(&[u8]) -> IResult<&[u8], Header> {
     move |input: &[u8]| {
         let ((version, command), (address_family, protocol), address_length) = required_header;
 
         map(
-            parse_optional_header(address_family, address_length),
-            move |((source_address, destination_address), tlvs)| Header::new(version, command, protocol, tlvs, source_address, destination_address),
+            parse_optional_header(protocol, address_family, address_length),
+            move |((source_address, destination_address), tlvs)| {
+                Header::new(
+                    version,
+                    command,
+                    protocol,
+                    tlvs,
+                    source_address,
+                    destination_address,
+                )
+            },
         )(input)
     }
 }
@@ -86,26 +139,33 @@ fn parse_required_header(input: &[u8]) -> IResult<&[u8], RequiredHeader> {
 }
 
 /// Parse the optional extra bytes after the required portion of the header.
-fn parse_optional_header(address_family: AddressFamily, address_length: u16) -> impl Fn(&[u8]) -> IResult<&[u8], OptionalHeader>
-{
+fn parse_optional_header(
+    protocol: Protocol,
+    address_family: AddressFamily,
+    address_length: u16,
+) -> impl Fn(&[u8]) -> IResult<&[u8], OptionalHeader> {
     move |input: &[u8]| {
         let (input, address) = take(address_length)(input)?;
-        let (_, optional_header) = all_consuming(pair(parse_addresses(address_family, address_length), parse_tlvs))(address)?;
+        let (_, optional_header) = all_consuming(pair(
+            parse_addresses(protocol, address_family, address_length),
+            parse_tlvs,
+        ))(address)?;
 
         Ok((input, optional_header))
     }
 }
 
 /// Create a parser that parses addresses from the input depending on the address family and address length.
-/// TODO: Also consider protocol as Stream and UDP require a port, but Unspecified does not.
-fn parse_addresses(address_family: AddressFamily, address_length: u16) -> impl Fn(&[u8]) -> IResult<&[u8], Addresses> {
-    move |input: &[u8]| {
-        match address_family {
-            AddressFamily::IPv4 => parse_ip_address_pair(parse_ipv4_address)(input),
-            AddressFamily::IPv6 => parse_ip_address_pair(parse_ipv6_address)(input),
-            AddressFamily::Unix => parse_unix_address_pairs(input),
-            AddressFamily::Unspecified => parse_unspecified(address_length)(input)
-        }
+fn parse_addresses(
+    protocol: Protocol,
+    address_family: AddressFamily,
+    address_length: u16,
+) -> impl Fn(&[u8]) -> IResult<&[u8], Addresses> {
+    move |input: &[u8]| match address_family {
+        AddressFamily::IPv4 => parse_ip_address_pair(protocol, parse_ipv4_address)(input),
+        AddressFamily::IPv6 => parse_ip_address_pair(protocol, parse_ipv6_address)(input),
+        AddressFamily::Unix => parse_unix_address_pairs(input),
+        AddressFamily::Unspecified => parse_unspecified(address_length)(input),
     }
 }
 
@@ -116,20 +176,21 @@ fn parse_unspecified(address_length: u16) -> impl Fn(&[u8]) -> IResult<&[u8], Ad
 
 /// Parses multiple Type-Length-Value records.
 fn parse_tlvs(input: &[u8]) -> IResult<&[u8], Vec<Tlv>> {
-    fold_many0(
-        parse_tlv,
-        Vec::new(),
-        |mut acc: Vec<Tlv>, tlv| {
-            acc.push(tlv);
-            acc
-        },
-    )(input)
+    fold_many0(parse_tlv, Vec::new(), |mut acc: Vec<Tlv>, tlv| {
+        acc.push(tlv);
+        acc
+    })(input)
 }
 
 /// Parses a single Type-Length-Value record.
 fn parse_tlv(input: &[u8]) -> IResult<&[u8], Tlv> {
     map(
-        tuple((number::complete::be_u8, flat_map(map_res(number::complete::be_u16, usize::try_from), |l| count(number::complete::be_u8, l)))),
+        tuple((
+            number::complete::be_u8,
+            flat_map(map_res(number::complete::be_u16, usize::try_from), |l| {
+                count(number::complete::be_u8, l)
+            }),
+        )),
         |(value_type, value)| Tlv::new(value_type, value),
     )(input)
 }
@@ -141,32 +202,71 @@ fn parse_unix_address(input: &[u8]) -> IResult<&[u8], Vec<u8>> {
 
 /// Parse a pair of Unix address paths.
 fn parse_unix_address_pairs(input: &[u8]) -> IResult<&[u8], Addresses> {
-    map_res(
-        pair(parse_unix_address, parse_unix_address),
-        |(s, d)| Ok::<Addresses, &'static str>((Address::try_from(s)?, Address::try_from(d)?)),
-    )(input)
+    map_res(pair(parse_unix_address, parse_unix_address), |(s, d)| {
+        Ok::<Addresses, &'static str>((Address::try_from(s)?, Address::try_from(d)?))
+    })(input)
 }
 
 /// Parse a 32-bit IPv4 address.
 fn parse_ipv4_address(input: &[u8]) -> IResult<&[u8], [u8; 4]> {
-    map(
-        tuple((be_u8, be_u8, be_u8, be_u8)),
-        |(a, b, c, d)| [a, b, c, d],
-    )(input)
+    map(tuple((be_u8, be_u8, be_u8, be_u8)), |(a, b, c, d)| {
+        [a, b, c, d]
+    })(input)
 }
 
 /// Parse a source and destination address.
-fn parse_ip_address_pair<O, F>(parse_ip_address: F) -> impl Fn(&[u8]) -> IResult<&[u8], Addresses>
-    where
-        F: Fn(&[u8]) -> IResult<&[u8], O>,
-        O: Into<Address>,
-        (O, u16): Into<Address>
+fn parse_ip_address_pair<O, F>(
+    protocol: Protocol,
+    parse_ip_address: F,
+) -> impl Fn(&[u8]) -> IResult<&[u8], Addresses>
+where
+    F: Fn(&[u8]) -> IResult<&[u8], O>,
+    O: Into<Address>,
+    (O, u16): Into<Address>,
+{
+    move |input: &[u8]| match protocol {
+        Protocol::Unspecified => parse_ip_address_pair_without_port(&parse_ip_address)(input),
+        _ => parse_ip_address_pair_with_port(&parse_ip_address)(input),
+    }
+}
+
+/// Parses a pair of IP addresses without ports.
+fn parse_ip_address_pair_without_port<F, O>(
+    parse_ip_address: F,
+) -> impl Fn(&[u8]) -> IResult<&[u8], Addresses>
+where
+    F: Fn(&[u8]) -> IResult<&[u8], O>,
+    O: Into<Address>,
 {
     move |input: &[u8]| {
         map(
-            pair(pair(&parse_ip_address, &parse_ip_address), pair(parse_port, parse_port)),
+            pair(&parse_ip_address, &parse_ip_address),
+            |(source_address, destination_address)| {
+                (source_address.into(), destination_address.into())
+            },
+        )(input)
+    }
+}
+
+/// Parses a pair of IP addresses with ports.
+fn parse_ip_address_pair_with_port<F, O>(
+    parse_ip_address: F,
+) -> impl Fn(&[u8]) -> IResult<&[u8], Addresses>
+where
+    F: Fn(&[u8]) -> IResult<&[u8], O>,
+    (O, u16): Into<Address>,
+{
+    move |input: &[u8]| {
+        map(
+            pair(
+                pair(&parse_ip_address, &parse_ip_address),
+                pair(parse_port, parse_port),
+            ),
             |((source_address, destination_address), (source_port, destination_port))| {
-                ((source_address, source_port).into(), (destination_address, destination_port).into())
+                (
+                    (source_address, source_port).into(),
+                    (destination_address, destination_port).into(),
+                )
             },
         )(input)
     }
@@ -180,7 +280,9 @@ fn parse_port(input: &[u8]) -> IResult<&[u8], u16> {
 /// Parse a 128-bit IPv6 address.
 fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
     map(
-        tuple((be_u16, be_u16, be_u16, be_u16, be_u16, be_u16, be_u16, be_u16)),
+        tuple((
+            be_u16, be_u16, be_u16, be_u16, be_u16, be_u16, be_u16, be_u16,
+        )),
         |(a, b, c, d, e, f, g, h)| [a, b, c, d, e, f, g, h],
     )(input)
 }
@@ -191,7 +293,7 @@ fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
 fn parse_version_command(input: &[u8]) -> IResult<&[u8], (Version, Command)> {
     alt((
         map(tag(b"\x20"), |_| (Version::Two, Command::Local)),
-        map(tag(b"\x21"), |_| (Version::Two, Command::Proxy))
+        map(tag(b"\x21"), |_| (Version::Two, Command::Proxy)),
     ))(input)
 }
 
@@ -211,14 +313,14 @@ fn parse_family_protocol(input: &[u8]) -> IResult<&[u8], (AddressFamily, Protoco
         map(tag(b"\x22"), |_| (AddressFamily::IPv6, Protocol::Datagram)),
         map(tag(b"\x30"), |_| (AddressFamily::Unix, Protocol::Unspecified)),
         map(tag(b"\x31"), |_| (AddressFamily::Unix, Protocol::Stream)),
-        map(tag(b"\x32"), |_| (AddressFamily::Unix, Protocol::Datagram))
+        map(tag(b"\x32"), |_| (AddressFamily::Unix, Protocol::Datagram)),
     ))(input)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::test::Bencher;
+    use super::*;
 
     #[test]
     fn parse_proxy() {
@@ -233,14 +335,20 @@ mod tests {
         input.extend(&[0, 80]);
         input.extend(&[1, 187]);
 
-        assert_eq!(parse_v2_header(&input[..]), Ok((&[][..], Header::new(
-            Version::Two,
-            Command::Proxy,
-            Protocol::Stream,
-            vec![],
-            ([127, 0, 0, 1], 80).into(),
-            ([127, 0, 0, 2], 443).into(),
-        ))));
+        assert_eq!(
+            parse_v2_header(&input[..]),
+            Ok((
+                &[][..],
+                Header::new(
+                    Version::Two,
+                    Command::Proxy,
+                    Protocol::Stream,
+                    vec![],
+                    ([127, 0, 0, 1], 80).into(),
+                    ([127, 0, 0, 2], 443).into(),
+                )
+            ))
+        );
     }
 
     #[test]
@@ -249,23 +357,78 @@ mod tests {
 
         input.extend_from_slice(PREFIX);
         input.push(0x21);
-        input.push(0x20);
+        input.push(0x21);
         input.extend(&[0, 45]);
-        input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
-        input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF1]);
+        input.extend(&[
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF,
+        ]);
+        input.extend(&[
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xF1,
+        ]);
         input.extend(&[0, 80]);
         input.extend(&[1, 187]);
         input.extend(&[1, 0, 1, 5]);
         input.extend(&[2, 0, 2, 5, 5]);
 
-        assert_eq!(parse_v2_header(&input[..]), Ok((&[][..], Header::new(
-            Version::Two,
-            Command::Proxy,
-            Protocol::Unspecified,
-            vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
-            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 80).into(),
-            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1], 443).into(),
-        ))))
+        assert_eq!(
+            parse_v2_header(&input[..]),
+            Ok((
+                &[][..],
+                Header::new(
+                    Version::Two,
+                    Command::Proxy,
+                    Protocol::Stream,
+                    vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
+                    (
+                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
+                        80
+                    )
+                        .into(),
+                    (
+                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1],
+                        443
+                    )
+                        .into(),
+                )
+            ))
+        )
+    }
+
+    #[test]
+    fn with_tlvs_without_ports() {
+        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        input.extend_from_slice(PREFIX);
+        input.push(0x21);
+        input.push(0x20);
+        input.extend(&[0, 41]);
+        input.extend(&[
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF,
+        ]);
+        input.extend(&[
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xF1,
+        ]);
+        input.extend(&[1, 0, 1, 5]);
+        input.extend(&[2, 0, 2, 5, 5]);
+
+        assert_eq!(
+            parse_v2_header(&input[..]),
+            Ok((
+                &[][..],
+                Header::new(
+                    Version::Two,
+                    Command::Proxy,
+                    Protocol::Unspecified,
+                    vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
+                    [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF].into(),
+                    [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1].into(),
+                )
+            ))
+        )
     }
 
     #[test]
@@ -295,14 +458,20 @@ mod tests {
         input.extend(&[0, 0]);
         input.extend(&[0, 80]);
 
-        assert_eq!(parse_v2_header(&input[..]), Ok((&[0, 80][..], Header::new(
-            Version::Two,
-            Command::Local,
-            Protocol::Datagram,
-            vec![],
-            Address::None,
-            Address::None,
-        ))));
+        assert_eq!(
+            parse_v2_header(&input[..]),
+            Ok((
+                &[0, 80][..],
+                Header::new(
+                    Version::Two,
+                    Command::Local,
+                    Protocol::Datagram,
+                    vec![],
+                    Address::None,
+                    Address::None,
+                )
+            ))
+        );
     }
 
     #[test]
@@ -318,14 +487,20 @@ mod tests {
         input.extend(&[0, 80]);
         input.extend(&[0xbb, 1]);
 
-        assert_eq!(parse_v2_header(&input[..]), Ok((&[][..], Header::new(
-            Version::Two,
-            Command::Local,
-            Protocol::Datagram,
-            vec![],
-            Address::None,
-            Address::None,
-        ))));
+        assert_eq!(
+            parse_v2_header(&input[..]),
+            Ok((
+                &[][..],
+                Header::new(
+                    Version::Two,
+                    Command::Local,
+                    Protocol::Datagram,
+                    vec![],
+                    Address::None,
+                    Address::None,
+                )
+            ))
+        );
     }
 
     #[test]
@@ -369,10 +544,16 @@ mod tests {
 
         input.extend_from_slice(PREFIX);
         input.push(0x21);
-        input.push(0x20);
+        input.push(0x21);
         input.extend(&[0, 45]);
-        input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
-        input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF1]);
+        input.extend(&[
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF,
+        ]);
+        input.extend(&[
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xF1,
+        ]);
         input.extend(&[0, 80]);
         input.extend(&[1, 187]);
         input.extend(&[1, 0, 1, 5]);

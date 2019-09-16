@@ -33,13 +33,13 @@ pub mod model;
 ///        ))));
 /// ```
 ///
-/// Version 2 TCP over IPv4 with TLVs
+/// Version 2 TCP over IPv6 with some TLVs
 /// ```rust
 /// let mut input: Vec<u8> = Vec::new();
 ///
 /// input.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
 /// input.push(0x21);
-/// input.push(0x20);
+/// input.push(0x21);
 /// input.extend(&[0, 45]);
 /// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
 /// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF1]);
@@ -48,10 +48,10 @@ pub mod model;
 /// input.extend(&[1, 0, 1, 5]);
 /// input.extend(&[2, 0, 2, 5, 5]);
 ///
-/// assert_eq!(ppp::parse_header(&input[..]), Ok((&[][..], ppp::model::Header::new(
+/// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[][..], ppp::model::Header::new(
 ///     ppp::model::Version::Two,
 ///     ppp::model::Command::Proxy,
-///     ppp::model::Protocol::Unspecified,
+///     ppp::model::Protocol::Stream,
 ///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
 ///     ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 80).into(),
 ///     ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1], 443).into(),
