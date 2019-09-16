@@ -83,7 +83,7 @@ type OptionalHeader = ((Address, Address), Vec<Tlv>);
 /// ))))
 /// ```
 ///
-/// Unspecified protocol over IPv4 with some TLVs
+/// Unspecified protocol over IPv6 with some TLVs
 /// ```rust
 /// let mut input: Vec<u8> = Vec::new();
 ///
