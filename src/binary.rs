@@ -86,6 +86,29 @@ type OptionalHeader = (Addresses, Vec<Tlv>);
 ///     ([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into(),
 /// ))))
 /// ```
+/// 
+/// Stream over Unix with some TLVs
+/// ```rust
+/// let mut input: Vec<u8> = Vec::new();
+///
+/// input.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
+/// input.push(0x20);
+/// input.push(0x31);
+/// input.extend(&[0, 225]);
+/// input.extend(&[0xFFu8; 108][..]);
+/// input.extend(&[0xAAu8; 108][..]);
+/// input.extend(&[1, 0, 1, 5]);
+/// input.extend(&[2, 0, 2, 5, 5]);
+/// input.extend(&[1, 2, 3, 4, 5]);
+///
+/// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[1, 2, 3, 4, 5][..], ppp::model::Header::new(
+///     ppp::model::Version::Two,
+///     ppp::model::Command::Local,
+///     ppp::model::Protocol::Stream,
+///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
+///     ([0xFFFFFFFFu32; 27], [0xAAAAAAAAu32; 27]).into(),
+/// ))))
+/// ```
 ///
 /// Unspecified protocol over IPv6 with some TLVs
 /// ```rust
@@ -476,6 +499,35 @@ mod tests {
                         443
                     )
                         .into(),
+                )
+            ))
+        )
+    }
+
+    #[test]
+    fn unix_tlvs_with_extra() {
+        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        input.extend_from_slice(PREFIX);
+        input.push(0x21);
+        input.push(0x30);
+        input.extend(&[0, 225]);
+        input.extend(&[0xFFu8; 108][..]);
+        input.extend(&[0xAAu8; 108][..]);
+        input.extend(&[1, 0, 1, 5]);
+        input.extend(&[2, 0, 2, 5, 5]);
+        input.extend(&[2, 0, 2, 5, 5]);
+
+        assert_eq!(
+            parse_v2_header(&input[..]),
+            Ok((
+                &[2, 0, 2, 5, 5][..],
+                Header::new(
+                    Version::Two,
+                    Command::Proxy,
+                    Protocol::Unspecified,
+                    vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
+                    ([0xFFFFFFFFu32; 27], [0xAAAAAAAAu32; 27]).into(),
                 )
             ))
         )
