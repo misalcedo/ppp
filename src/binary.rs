@@ -5,13 +5,13 @@ use std::convert::TryFrom;
 use nom::branch::alt;
 use nom::bytes::streaming::*;
 use nom::combinator::*;
-use nom::multi::{count, fold_many0};
+use nom::multi::{count, fold_many0, fold_many_m_n};
 use nom::number;
 use nom::number::streaming::*;
 use nom::sequence::*;
 use nom::IResult;
 
-use crate::model::{Address, Command, Header, Protocol, Tlv, Version};
+use crate::model::{Addresses, Command, Header, Protocol, Tlv, Version};
 
 const PREFIX: &[u8] = b"\r\n\r\n\0\r\nQUIT\n";
 
@@ -26,8 +26,7 @@ enum AddressFamily {
 
 /// The required portion of a version 2 header.
 type RequiredHeader = ((Version, Command), (AddressFamily, Protocol), u16);
-type Addresses = (Address, Address);
-type OptionalHeader = ((Address, Address), Vec<Tlv>);
+type OptionalHeader = (Addresses, Vec<Tlv>);
 
 /// Parse the first 16 bytes of the protocol header; the only required payload.
 /// The 12 byte signature and 4 bytes used to describe the connection and header information.
@@ -53,8 +52,12 @@ type OptionalHeader = ((Address, Address), Vec<Tlv>);
 ///     ppp::model::Command::Proxy,
 ///     ppp::model::Protocol::Stream,
 ///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
-///     ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 80).into(),
-///     ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1], 443).into(),
+///     (
+///         [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
+///         [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1],
+///         80,
+///         443
+///     ).into(),
 /// ))))
 /// ```
 ///
@@ -78,8 +81,7 @@ type OptionalHeader = ((Address, Address), Vec<Tlv>);
 ///     ppp::model::Command::Local,
 ///     ppp::model::Protocol::Datagram,
 ///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
-///     ([127, 0, 0, 1], 80).into(),
-///     ([192, 168, 1, 1], 443).into(),
+///     ([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into(),
 /// ))))
 /// ```
 ///
@@ -101,8 +103,10 @@ type OptionalHeader = ((Address, Address), Vec<Tlv>);
 ///     ppp::model::Command::Proxy,
 ///     ppp::model::Protocol::Unspecified,
 ///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
-///     [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF].into(),
-///     [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1].into(),
+///     (
+///         [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
+///         [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1]
+///     ).into()
 /// ))))
 /// ```
 pub fn parse_v2_header(input: &[u8]) -> IResult<&[u8], Header> {
@@ -116,15 +120,8 @@ fn parse_full_header(required_header: RequiredHeader) -> impl Fn(&[u8]) -> IResu
 
         map(
             parse_optional_header(protocol, address_family, address_length),
-            move |((source_address, destination_address), tlvs)| {
-                Header::new(
-                    version,
-                    command,
-                    protocol,
-                    tlvs,
-                    source_address,
-                    destination_address,
-                )
+            move |(addresses, tlvs)| {
+                Header::new(version, command, protocol, tlvs, addresses.into())
             },
         )(input)
     }
@@ -171,7 +168,7 @@ fn parse_addresses(
 
 /// Consume the specified bytes from the input, ignoring all consumed bytes.
 fn parse_unspecified(address_length: u16) -> impl Fn(&[u8]) -> IResult<&[u8], Addresses> {
-    move |input: &[u8]| map(take(address_length), |_| (Address::None, Address::None))(input)
+    move |input: &[u8]| map(take(address_length), |_| Addresses::None)(input)
 }
 
 /// Parses multiple Type-Length-Value records.
@@ -196,15 +193,31 @@ fn parse_tlv(input: &[u8]) -> IResult<&[u8], Tlv> {
 }
 
 /// Parse a Unix address path of 108 bytes.
-fn parse_unix_address(input: &[u8]) -> IResult<&[u8], Vec<u8>> {
-    count(be_u8, 108)(input)
+fn parse_unix_address(input: &[u8]) -> IResult<&[u8], [u32; 27]> {
+    map(
+        fold_many_m_n(
+            27,
+            27,
+            be_u32,
+            ([0; 27], 0),
+            |acc: ([u32; 27], usize), item| {
+                let (mut array, index) = acc;
+
+                array[index] = item;
+
+                (array, index + 1)
+            },
+        ),
+        |(array, _)| array,
+    )(input)
 }
 
 /// Parse a pair of Unix address paths.
 fn parse_unix_address_pairs(input: &[u8]) -> IResult<&[u8], Addresses> {
-    map_res(pair(parse_unix_address, parse_unix_address), |(s, d)| {
-        Ok::<Addresses, &'static str>((Address::try_from(s)?, Address::try_from(d)?))
-    })(input)
+    map(
+        pair(parse_unix_address, parse_unix_address),
+        Addresses::from,
+    )(input)
 }
 
 /// Parse a 32-bit IPv4 address.
@@ -221,8 +234,8 @@ fn parse_ip_address_pair<O, F>(
 ) -> impl Fn(&[u8]) -> IResult<&[u8], Addresses>
 where
     F: Fn(&[u8]) -> IResult<&[u8], O>,
-    O: Into<Address>,
-    (O, u16): Into<Address>,
+    (O, O): Into<Addresses>,
+    (O, O, u16, u16): Into<Addresses>,
 {
     move |input: &[u8]| match protocol {
         Protocol::Unspecified => parse_ip_address_pair_without_port(&parse_ip_address)(input),
@@ -236,15 +249,12 @@ fn parse_ip_address_pair_without_port<F, O>(
 ) -> impl Fn(&[u8]) -> IResult<&[u8], Addresses>
 where
     F: Fn(&[u8]) -> IResult<&[u8], O>,
-    O: Into<Address>,
+    (O, O): Into<Addresses>,
 {
     move |input: &[u8]| {
-        map(
-            pair(&parse_ip_address, &parse_ip_address),
-            |(source_address, destination_address)| {
-                (source_address.into(), destination_address.into())
-            },
-        )(input)
+        map(pair(&parse_ip_address, &parse_ip_address), |addresses| {
+            addresses.into()
+        })(input)
     }
 }
 
@@ -254,20 +264,12 @@ fn parse_ip_address_pair_with_port<F, O>(
 ) -> impl Fn(&[u8]) -> IResult<&[u8], Addresses>
 where
     F: Fn(&[u8]) -> IResult<&[u8], O>,
-    (O, u16): Into<Address>,
+    (O, O, u16, u16): Into<Addresses>,
 {
     move |input: &[u8]| {
         map(
-            pair(
-                pair(&parse_ip_address, &parse_ip_address),
-                pair(parse_port, parse_port),
-            ),
-            |((source_address, destination_address), (source_port, destination_port))| {
-                (
-                    (source_address, source_port).into(),
-                    (destination_address, destination_port).into(),
-                )
-            },
+            tuple((&parse_ip_address, &parse_ip_address, parse_port, parse_port)),
+            |addresses| addresses.into(),
         )(input)
     }
 }
@@ -356,8 +358,7 @@ mod tests {
                     Command::Proxy,
                     Protocol::Stream,
                     vec![],
-                    ([127, 0, 0, 1], 80).into(),
-                    ([127, 0, 0, 2], 443).into(),
+                    ([127, 0, 0, 1], [127, 0, 0, 2], 80, 443).into(),
                 )
             ))
         );
@@ -395,11 +396,8 @@ mod tests {
                     vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
                     (
                         [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
-                        80
-                    )
-                        .into(),
-                    (
                         [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1],
+                        80,
                         443
                     )
                         .into(),
@@ -436,8 +434,11 @@ mod tests {
                     Command::Proxy,
                     Protocol::Unspecified,
                     vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
-                    [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF].into(),
-                    [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1].into(),
+                    (
+                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
+                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1]
+                    )
+                        .into(),
                 )
             ))
         )
@@ -479,8 +480,7 @@ mod tests {
                     Command::Local,
                     Protocol::Datagram,
                     vec![],
-                    Address::None,
-                    Address::None,
+                    Addresses::None,
                 )
             ))
         );
@@ -508,8 +508,7 @@ mod tests {
                     Command::Local,
                     Protocol::Datagram,
                     vec![],
-                    Address::None,
-                    Address::None,
+                    Addresses::None,
                 )
             ))
         );

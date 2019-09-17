@@ -8,10 +8,10 @@ use nom::character::complete::digit1;
 use nom::character::is_hex_digit;
 use nom::combinator::{all_consuming, map, map_parser, map_res, opt, verify};
 use nom::multi::separated_nonempty_list;
-use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
+use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use nom::IResult;
 
-use crate::model::{Address, Header};
+use crate::model::{Addresses, Header};
 
 /// Parse a group of 4 hexadecimal characters as a string slice.
 fn parse_hexadecimal(input: &[u8]) -> IResult<&[u8], &str> {
@@ -75,28 +75,22 @@ fn parse_tcp<O, F>(
     protocol_family: &'static str,
     parse_ip_address: F,
 ) -> impl Fn(&[u8]) -> IResult<&[u8], Header>
-where
-    F: Fn(&[u8]) -> IResult<&[u8], O>,
-    (O, u16): Into<Address>,
+    where
+        F: Fn(&[u8]) -> IResult<&[u8], O>,
+        (O, O, u16, u16): Into<Addresses>,
 {
     move |input: &[u8]| {
         all_consuming(map(
             preceded(
                 terminated(tag(protocol_family), tag(" ")),
-                pair(
-                    terminated(
-                        separated_pair(&parse_ip_address, tag(" "), &parse_ip_address),
-                        tag(" "),
-                    ),
-                    separated_pair(parse_port, tag(" "), parse_port),
-                ),
+                tuple((
+                    terminated(&parse_ip_address, tag(" ")),
+                    terminated(&parse_ip_address, tag(" ")),
+                    terminated(parse_port, tag(" ")),
+                    parse_port,
+                )),
             ),
-            |((source_address, destination_address), (source_port, destination_port))| {
-                Header::version_1(
-                    (source_address, source_port).into(),
-                    (destination_address, destination_port).into(),
-                )
-            },
+            |addresses| Header::version_1(addresses.into()),
         ))(input)
     }
 }
@@ -166,16 +160,19 @@ fn parse_unknown(input: &[u8]) -> IResult<&[u8], Header> {
 /// TCP4
 /// ```rust
 /// assert_eq!(ppp::text::parse_v1_header(b"PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n"), Ok((&[][..], ppp::model:: Header::version_1(
-///            ([255, 255, 255, 255], 65535).into(),
-///            ([255, 255, 255, 255], 65535).into(),
+///            ([255, 255, 255, 255], [255, 255, 255, 255], 65535, 65535).into(),
 ///        ))));
 /// ```
 ///
 /// TCP6
 /// ```rust
 /// assert_eq!(ppp::text::parse_v1_header(b"PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n"), Ok((&[][..], ppp::model:: Header::version_1(
-///            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
-///            ([0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], 65535).into(),
+///            (
+///                 [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
+///                 [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
+///                 65535,
+///                 65535
+///             ).into()
 ///        ))));
 /// ```
 pub fn parse_v1_header(input: &[u8]) -> IResult<&[u8], Header> {
@@ -197,10 +194,8 @@ mod tests {
     #[test]
     fn tcp4() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n".as_bytes();
-        let expected = Header::version_1(
-            ([255, 255, 255, 255], 65535).into(),
-            ([255, 255, 255, 255], 65535).into(),
-        );
+        let expected =
+            Header::version_1(([255, 255, 255, 255], [255, 255, 255, 255], 65535, 65535).into());
 
         assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
     }
@@ -248,13 +243,10 @@ mod tests {
                 [
                     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
                 ],
-                65535,
-            )
-                .into(),
-            (
                 [
                     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
                 ],
+                65535,
                 65535,
             )
                 .into(),
@@ -282,11 +274,12 @@ mod tests {
         let text = "PROXY TCP6 ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n"
             .as_bytes();
         let expected = Header::version_1(
-            ([0xFFFF, 0, 0, 0, 0, 0, 0, 0xFFFF], 65535).into(),
             (
+                [0xFFFF, 0, 0, 0, 0, 0, 0, 0xFFFF],
                 [
                     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
                 ],
+                65535,
                 65535,
             )
                 .into(),
@@ -301,13 +294,10 @@ mod tests {
         let expected = Header::version_1(
             (
                 [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0, 0xFFFF, 0xFFFF, 0xFFFF],
-                65535,
-            )
-                .into(),
-            (
                 [
                     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
                 ],
+                65535,
                 65535,
             )
                 .into(),
