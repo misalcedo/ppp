@@ -46,8 +46,9 @@ type OptionalHeader = (Addresses, Vec<Tlv>);
 /// input.extend(&[1, 187]);
 /// input.extend(&[1, 0, 1, 5]);
 /// input.extend(&[2, 0, 2, 5, 5]);
+/// input.extend(&[1, 1, 1]);
 ///
-/// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[][..], ppp::model::Header::new(
+/// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[1, 1, 1][..], ppp::model::Header::new(
 ///     ppp::model::Version::Two,
 ///     ppp::model::Command::Proxy,
 ///     ppp::model::Protocol::Stream,
@@ -75,8 +76,9 @@ type OptionalHeader = (Addresses, Vec<Tlv>);
 /// input.extend(&[1, 187]);
 /// input.extend(&[1, 0, 1, 5]);
 /// input.extend(&[2, 0, 2, 5, 5]);
+/// input.extend(&[1, 2, 3, 4, 5]);
 ///
-/// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[][..], ppp::model::Header::new(
+/// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[1, 2, 3, 4, 5][..], ppp::model::Header::new(
 ///     ppp::model::Version::Two,
 ///     ppp::model::Command::Local,
 ///     ppp::model::Protocol::Datagram,
@@ -97,8 +99,9 @@ type OptionalHeader = (Addresses, Vec<Tlv>);
 /// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF1]);
 /// input.extend(&[1, 0, 1, 5]);
 /// input.extend(&[2, 0, 2, 5, 5]);
+/// input.extend(&[42]);
 ///
-/// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[][..], ppp::model::Header::new(
+/// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[42][..], ppp::model::Header::new(
 ///     ppp::model::Version::Two,
 ///     ppp::model::Command::Proxy,
 ///     ppp::model::Protocol::Unspecified,
@@ -365,6 +368,35 @@ mod tests {
     }
 
     #[test]
+    fn proxy_with_extra() {
+        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        input.extend_from_slice(PREFIX);
+        input.push(0x21);
+        input.push(0x11);
+        input.extend(&[0, 12]);
+        input.extend(&[127, 0, 0, 1]);
+        input.extend(&[127, 0, 0, 2]);
+        input.extend(&[0, 80]);
+        input.extend(&[1, 187]);
+        input.extend(&[42]);
+
+        assert_eq!(
+            parse_v2_header(&input[..]),
+            Ok((
+                &[42][..],
+                Header::new(
+                    Version::Two,
+                    Command::Proxy,
+                    Protocol::Stream,
+                    vec![],
+                    ([127, 0, 0, 1], [127, 0, 0, 2], 80, 443).into(),
+                )
+            ))
+        );
+    }
+
+    #[test]
     fn with_tlvs() {
         let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
 
@@ -389,6 +421,49 @@ mod tests {
             parse_v2_header(&input[..]),
             Ok((
                 &[][..],
+                Header::new(
+                    Version::Two,
+                    Command::Proxy,
+                    Protocol::Stream,
+                    vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
+                    (
+                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
+                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1],
+                        80,
+                        443
+                    )
+                        .into(),
+                )
+            ))
+        )
+    }
+
+    #[test]
+    fn tlvs_with_extra() {
+        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        input.extend_from_slice(PREFIX);
+        input.push(0x21);
+        input.push(0x21);
+        input.extend(&[0, 45]);
+        input.extend(&[
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF,
+        ]);
+        input.extend(&[
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xF1,
+        ]);
+        input.extend(&[0, 80]);
+        input.extend(&[1, 187]);
+        input.extend(&[1, 0, 1, 5]);
+        input.extend(&[2, 0, 2, 5, 5]);
+        input.extend(&[2, 0, 2, 5, 5]);
+
+        assert_eq!(
+            parse_v2_header(&input[..]),
+            Ok((
+                &[2, 0, 2, 5, 5][..],
                 Header::new(
                     Version::Two,
                     Command::Proxy,

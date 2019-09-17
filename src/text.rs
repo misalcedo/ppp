@@ -159,14 +159,14 @@ fn parse_unknown(input: &[u8]) -> IResult<&[u8], Header> {
 ///
 /// TCP4
 /// ```rust
-/// assert_eq!(ppp::text::parse_v1_header(b"PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n"), Ok((&[][..], ppp::model:: Header::version_1(
+/// assert_eq!(ppp::text::parse_v1_header(b"PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\nHello, World!"), Ok((&b"Hello, World!"[..], ppp::model:: Header::version_1(
 ///            ([255, 255, 255, 255], [255, 255, 255, 255], 65535, 65535).into(),
 ///        ))));
 /// ```
 ///
 /// TCP6
 /// ```rust
-/// assert_eq!(ppp::text::parse_v1_header(b"PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n"), Ok((&[][..], ppp::model:: Header::version_1(
+/// assert_eq!(ppp::text::parse_v1_header(b"PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\nHi!"), Ok((&b"Hi!"[..], ppp::model:: Header::version_1(
 ///            (
 ///                 [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
 ///                 [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
@@ -192,12 +192,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tcp4() {
+    fn exact_tcp4() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n".as_bytes();
         let expected =
             Header::version_1(([255, 255, 255, 255], [255, 255, 255, 255], 65535, 65535).into());
 
         assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
+    }
+
+    #[test]
+    fn valid_tcp4() {
+        let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\nFoobar".as_bytes();
+        let expected =
+            Header::version_1(([255, 255, 255, 255], [255, 255, 255, 255], 65535, 65535).into());
+
+        assert_eq!(parse_v1_header(text), Ok((&b"Foobar"[..], expected)));
     }
 
     #[test]
@@ -230,14 +239,14 @@ mod tests {
 
     #[test]
     fn parse_unknown_connection() {
-        let text = "PROXY UNKNOWN\r\n".as_bytes();
+        let text = "PROXY UNKNOWN\r\nTwo".as_bytes();
 
-        assert_eq!(parse_v1_header(text), Ok((&[][..], Header::unknown())));
+        assert_eq!(parse_v1_header(text), Ok((&b"Two"[..], Header::unknown())));
     }
 
     #[test]
-    fn parse_tcp6_connection() {
-        let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
+    fn valid_tcp6() {
+        let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\nHi!".as_bytes();
         let expected = Header::version_1(
             (
                 [
@@ -252,7 +261,7 @@ mod tests {
                 .into(),
         );
 
-        assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
+        assert_eq!(parse_v1_header(text), Ok((&b"Hi!"[..], expected)));
     }
 
     #[test]

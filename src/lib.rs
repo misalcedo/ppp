@@ -27,7 +27,7 @@ pub mod model;
 ///
 /// Version 1 TCP4
 /// ```rust
-/// assert_eq!(ppp::parse_header(b"PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n"), Ok((&[][..], ppp::model:: Header::version_1(
+/// assert_eq!(ppp::parse_header(b"PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\nHi!"), Ok((&b"Hi!"[..], ppp::model:: Header::version_1(
 ///            ([255, 255, 255, 255], [255, 255, 255, 255], 65535, 65535).into(),
 ///        ))));
 /// ```
@@ -46,8 +46,9 @@ pub mod model;
 /// input.extend(&[1, 187]);
 /// input.extend(&[1, 0, 1, 5]);
 /// input.extend(&[2, 0, 2, 5, 5]);
+/// input.extend(&[42]);
 ///
-/// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[][..], ppp::model::Header::new(
+/// assert_eq!(ppp::binary::parse_v2_header(&input[..]), Ok((&[42][..], ppp::model::Header::new(
 ///     ppp::model::Version::Two,
 ///     ppp::model::Command::Proxy,
 ///     ppp::model::Protocol::Stream,
