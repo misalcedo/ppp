@@ -75,9 +75,9 @@ fn parse_tcp<O, F>(
     protocol_family: &'static str,
     parse_ip_address: F,
 ) -> impl Fn(&[u8]) -> IResult<&[u8], Header>
-    where
-        F: Fn(&[u8]) -> IResult<&[u8], O>,
-        (O, O, u16, u16): Into<Addresses>,
+where
+    F: Fn(&[u8]) -> IResult<&[u8], O>,
+    (O, O, u16, u16): Into<Addresses>,
 {
     move |input: &[u8]| {
         all_consuming(map(
