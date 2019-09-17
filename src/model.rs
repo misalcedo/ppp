@@ -1,4 +1,5 @@
 use std::slice::Iter;
+use std::boxed::Box;
 
 /// The version of the proxy protocol header.
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Copy, Clone)]
@@ -82,6 +83,12 @@ impl Tlv {
         self.value.len()
     }
 
+    /// A predicate to test if the Tlv has a length equal to zero.
+    pub fn is_empty(&self) -> bool {
+        self.value.len() == 0
+    }
+
+    /// Create a new instance of a Tlv.
     pub fn new(value_type: u8, value: Vec<u8>) -> Tlv {
         Tlv { value_type, value }
     }
@@ -105,8 +112,8 @@ pub enum Addresses {
         destination_port: Option<u16>,
     },
     Unix {
-        source_address: [u32; 27],
-        destination_address: [u32; 27],
+        source_address: Box<[u32; 27]>,
+        destination_address: Box<[u32; 27]>,
     },
     None,
 }
@@ -172,8 +179,8 @@ impl From<([u16; 8], [u16; 8], u16, u16)> for Addresses {
 impl From<([u32; 27], [u32; 27])> for Addresses {
     fn from((source_address, destination_address): ([u32; 27], [u32; 27])) -> Self {
         Addresses::Unix {
-            source_address,
-            destination_address,
+            source_address: Box::new(source_address),
+            destination_address: Box::new(destination_address),
         }
     }
 }
@@ -340,8 +347,10 @@ mod tests {
         let tlv = Tlv::new(7, vec![1, 2, 3]);
 
         assert_eq!(3, tlv.len());
+        assert!(!tlv.is_empty());
         assert_eq!(7, tlv.value_type());
         assert_eq!(&vec![1, 2, 3][..], tlv.value());
+        assert!(Tlv::new(0, vec![]).is_empty());
     }
 
     #[test]

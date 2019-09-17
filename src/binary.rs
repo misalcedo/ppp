@@ -86,7 +86,7 @@ type OptionalHeader = (Addresses, Vec<Tlv>);
 ///     ([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into(),
 /// ))))
 /// ```
-/// 
+///
 /// Stream over Unix with some TLVs
 /// ```rust
 /// let mut input: Vec<u8> = Vec::new();
@@ -146,9 +146,7 @@ fn parse_full_header(required_header: RequiredHeader) -> impl Fn(&[u8]) -> IResu
 
         map(
             parse_optional_header(protocol, address_family, address_length),
-            move |(addresses, tlvs)| {
-                Header::new(version, command, protocol, tlvs, addresses.into())
-            },
+            move |(addresses, tlvs)| Header::new(version, command, protocol, tlvs, addresses),
         )(input)
     }
 }
