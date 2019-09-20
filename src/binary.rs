@@ -256,7 +256,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_proxy() {
+    fn no_tlvs() {
         let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
 
         input.extend_from_slice(PREFIX);
@@ -281,6 +281,70 @@ mod tests {
                 )
             ))
         );
+    }
+
+    #[test]
+    fn invalid_version() {
+        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        input.extend_from_slice(PREFIX);
+        input.push(0x11);
+        input.push(0x11);
+        input.extend(&[0, 12]);
+        input.extend(&[127, 0, 0, 1]);
+        input.extend(&[127, 0, 0, 2]);
+        input.extend(&[0, 80]);
+        input.extend(&[1, 187]);
+
+        assert!(!parse_v2_header(&input[..]).unwrap_err().is_incomplete());
+    }
+
+    #[test]
+    fn invalid_address_family() {
+        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        input.extend_from_slice(PREFIX);
+        input.push(0x21);
+        input.push(0x51);
+        input.extend(&[0, 12]);
+        input.extend(&[127, 0, 0, 1]);
+        input.extend(&[127, 0, 0, 2]);
+        input.extend(&[0, 80]);
+        input.extend(&[1, 187]);
+
+        assert!(!parse_v2_header(&input[..]).unwrap_err().is_incomplete());
+    }
+
+    #[test]
+    fn invalid_command() {
+        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        input.extend_from_slice(PREFIX);
+        input.push(0x23);
+        input.push(0x11);
+        input.extend(&[0, 12]);
+        input.extend(&[127, 0, 0, 1]);
+        input.extend(&[127, 0, 0, 2]);
+        input.extend(&[0, 80]);
+        input.extend(&[1, 187]);
+
+        assert!(!parse_v2_header(&input[..]).unwrap_err().is_incomplete());
+    }
+
+    #[test]
+    fn invalid_protocol() {
+        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        input.extend_from_slice(PREFIX);
+        input.push(0x20);
+        input.push(0x17);
+        input.extend(&[0, 12]);
+        input.extend(&[127, 0, 0, 1]);
+        input.extend(&[127, 0, 0, 2]);
+        input.extend(&[0, 80]);
+        input.extend(&[1, 187]);
+
+        assert!(!parse_v2_header(&input[..]).unwrap_err().is_incomplete());
     }
 
     #[test]
@@ -471,6 +535,40 @@ mod tests {
         input.extend_from_slice(PREFIX);
         input.push(0x21);
         input.push(0x11);
+        input.extend(&[0, 15]);
+        input.extend(&[127, 0, 0, 1]);
+        input.extend(&[127, 0, 0, 2]);
+        input.extend(&[0, 80]);
+        input.extend(&[1, 187]);
+        input.extend(&[1, 0, 1]);
+
+        assert!(!parse_v2_header(&input[..]).unwrap_err().is_incomplete());
+    }
+
+    #[test]
+    fn missing_tlvs() {
+        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        input.extend_from_slice(PREFIX);
+        input.push(0x21);
+        input.push(0x11);
+        input.extend(&[0, 17]);
+        input.extend(&[127, 0, 0, 1]);
+        input.extend(&[127, 0, 0, 2]);
+        input.extend(&[0, 80]);
+        input.extend(&[1, 187]);
+        input.extend(&[1, 0, 1]);
+
+        assert!(parse_v2_header(&input[..]).unwrap_err().is_incomplete());
+    }
+
+    #[test]
+    fn partial_address() {
+        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        input.extend_from_slice(PREFIX);
+        input.push(0x21);
+        input.push(0x11);
         input.extend(&[0, 16]);
         input.extend(&[127, 0, 0, 1]);
         input.extend(&[127, 0, 0, 2]);
@@ -548,17 +646,10 @@ mod tests {
     }
 
     #[test]
-    fn wrong_version() {
-        let result = parse_v2_header(b"\r\n\r\n\0\r\nQUIT\n\x13\x02\0\x01\xFF");
-
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn not_prefixed() {
         let result = parse_v2_header(b"\r\n\r\n\x01\r\nQUIT\n");
 
-        assert!(result.is_err());
+        assert!(!result.unwrap_err().is_incomplete());
     }
 
     #[test]
@@ -566,7 +657,7 @@ mod tests {
         let bytes = [0x0D, 0x0A, 0x0D, 0x0A, 0x00];
         let result = parse_v2_header(&bytes[..]);
 
-        assert!(result.is_err());
+        assert!(result.unwrap_err().is_incomplete());
     }
 
     #[bench]
