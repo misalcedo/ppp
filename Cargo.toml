@@ -11,5 +11,8 @@ documentation = "https://github.com/misalcedo/ppp"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[badges]
+travis-ci = { repository = "misalcedo/ppp" }
+
 [dependencies]
 nom = "5"
