@@ -17,6 +17,9 @@ pub mod text;
 /// Types representing both text and binary versions of HAProxy's proxy protocol header.
 pub mod model;
 
+/// The error type used by the parsers.
+pub mod error;
+
 /// A parser that can handle both version 1 and version 2 of the proxy protocol header.
 ///
 /// # Examples
