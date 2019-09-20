@@ -3,7 +3,6 @@ rust:
   - stable
   - beta
   - nightly
-  - 1.39.0
 matrix:
   allow_failures:
     - rust: nightly
