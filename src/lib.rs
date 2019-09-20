@@ -2,10 +2,10 @@
 //! A Proxy Protocol Parser written in Rust using nom.
 
 use nom::branch::alt;
-use nom::IResult;
 
 use crate::binary::parse_v2_header;
-use crate::model::Header;
+use crate::model::ParseResult;
+use crate::error::ParseError;
 use crate::text::parse_v1_header;
 
 /// Parsers for the binary representation of HAProxy's proxy protocol header.
@@ -64,6 +64,6 @@ pub mod error;
 ///     ).into(),
 /// ))))
 /// ```
-pub fn parse_header(input: &[u8]) -> IResult<&[u8], Header> {
-    alt((parse_v2_header, parse_v1_header))(input)
+pub fn parse_header(input: &[u8]) -> ParseResult<&[u8]> {
+    alt((parse_v2_header, parse_v1_header))(input).map_err(ParseError::from)
 }

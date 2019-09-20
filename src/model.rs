@@ -1,6 +1,8 @@
 use std::slice::Iter;
 use std::boxed::Box;
 
+pub type ParseResult<T> = Result<(T, Header), crate::error::ParseError>;
+
 /// The version of the proxy protocol header.
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Copy, Clone)]
 pub enum Version {
