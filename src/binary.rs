@@ -1,5 +1,3 @@
-extern crate test;
-
 use std::convert::TryFrom;
 
 use nom::branch::alt;
@@ -252,7 +250,6 @@ fn parse_family_protocol(input: &[u8]) -> IResult<&[u8], (AddressFamily, Protoco
 
 #[cfg(test)]
 mod tests {
-    use super::test::Bencher;
     use super::*;
 
     #[test]
@@ -658,29 +655,5 @@ mod tests {
         let result = parse_v2_header(&bytes[..]);
 
         assert!(result.unwrap_err().is_incomplete());
-    }
-
-    #[bench]
-    fn bench_header_with_tlvs(b: &mut Bencher) {
-        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
-
-        input.extend_from_slice(PREFIX);
-        input.push(0x21);
-        input.push(0x21);
-        input.extend(&[0, 45]);
-        input.extend(&[
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xFF,
-        ]);
-        input.extend(&[
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xF1,
-        ]);
-        input.extend(&[0, 80]);
-        input.extend(&[1, 187]);
-        input.extend(&[1, 0, 1, 5]);
-        input.extend(&[2, 0, 2, 5, 5]);
-
-        b.iter(|| parse_v2_header(&input[..]).unwrap());
     }
 }

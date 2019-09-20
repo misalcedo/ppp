@@ -1,4 +1,3 @@
-#![feature(test)]
 //! A Proxy Protocol Parser written in Rust using nom.
 
 use nom::branch::alt;

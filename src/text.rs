@@ -1,5 +1,3 @@
-extern crate test;
-
 use nom::branch::alt;
 use nom::bytes;
 use nom::bytes::complete::{tag, take_while_m_n};
@@ -158,7 +156,6 @@ pub fn parse_v1_header(input: &[u8]) -> IResult<&[u8], Header> {
 
 #[cfg(test)]
 mod tests {
-    use super::test::Bencher;
     use super::*;
 
     #[test]
@@ -404,26 +401,5 @@ mod tests {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535 \r\n".as_bytes();
 
         assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
-    }
-
-    #[bench]
-    fn bench_parse_tcp4(b: &mut Bencher) {
-        let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n";
-
-        b.iter(|| parse_v1_header(text.as_bytes()).unwrap());
-    }
-
-    #[bench]
-    fn bench_parse_tcp6(b: &mut Bencher) {
-        let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
-
-        b.iter(|| parse_v1_header(text.as_bytes()).unwrap());
-    }
-
-    #[bench]
-    fn bench_parse_tcp6_compact(b: &mut Bencher) {
-        let text = "PROXY TCP6 ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
-
-        b.iter(|| parse_v1_header(text.as_bytes()).unwrap());
     }
 }
