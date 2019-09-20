@@ -8,7 +8,7 @@ pub enum ParseError {
     /// (i.e. bytes) in order to determine success or failure.
     Incomplete,
     /// The parser was unable to parse a header; no additional information is necessary.
-    Failure
+    Failure,
 }
 
 impl ParseError {
@@ -32,12 +32,15 @@ impl<T> From<nom::Err<(T, nom::error::ErrorKind)>> for ParseError {
     }
 }
 
-impl Error for ParseError {
-}
+impl Error for ParseError {}
 
 impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "Unable to parse a header from input (Reason: {:?}).", self)
+        write!(
+            f,
+            "Unable to parse a header from input (Reason: {:?}).",
+            self
+        )
     }
 }
 

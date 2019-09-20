@@ -3,8 +3,8 @@
 
 use nom::branch::alt;
 
-use crate::model::ParseResult;
 use crate::error::ParseError;
+use crate::model::ParseResult;
 
 /// Parsers for the binary representation of HAProxy's proxy protocol header.
 mod binary;

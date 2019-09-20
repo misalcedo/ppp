@@ -1,5 +1,5 @@
-use std::slice::Iter;
 use std::boxed::Box;
+use std::slice::Iter;
 
 pub type ParseResult<T> = Result<(T, Header), crate::error::ParseError>;
 
@@ -190,11 +190,11 @@ impl From<([u32; 27], [u32; 27])> for Addresses {
 /// A parsed proxy protocol header.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Header {
-    version: Version,
-    command: Command,
-    protocol: Protocol,
+    pub version: Version,
+    pub command: Command,
+    pub protocol: Protocol,
+    pub addresses: Addresses,
     tlvs: Vec<Tlv>,
-    addresses: Addresses,
 }
 
 impl Header {
@@ -248,29 +248,9 @@ impl Header {
         }
     }
 
-    /// The version of the parsed header.
-    pub fn version(&self) -> &Version {
-        &self.version
-    }
-
-    /// The command of the parsed header.
-    pub fn protocol(&self) -> &Protocol {
-        &self.protocol
-    }
-
-    /// The command of the parsed header.
-    pub fn command(&self) -> &Command {
-        &self.command
-    }
-
     /// An iterator of all the TLVs.
     pub fn tlvs(&self) -> Iter<'_, Tlv> {
         self.tlvs.iter()
-    }
-
-    /// The addresses of the client and server connected to by the proxy.
-    pub fn addresses(&self) -> &Addresses {
-        &self.addresses
     }
 }
 
@@ -290,10 +270,10 @@ mod tests {
         );
         let mut iter = header.tlvs();
 
-        assert_eq!(&version, header.version());
-        assert_eq!(&Protocol::Unspecified, header.protocol());
-        assert_eq!(&Command::Proxy, header.command());
-        assert_eq!(&Addresses::None, header.addresses());
+        assert_eq!(version, header.version);
+        assert_eq!(Protocol::Unspecified, header.protocol);
+        assert_eq!(Command::Proxy, header.command);
+        assert_eq!(Addresses::None, header.addresses);
         assert_eq!(Some(&Tlv::new(1, vec![1, 2, 3])), iter.next());
         assert_eq!(Some(&Tlv::new(2, vec![1, 1])), iter.next());
         assert_eq!(None, iter.next());
