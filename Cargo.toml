@@ -3,6 +3,10 @@ name = "ppp"
 version = "1.0.0"
 authors = ["Miguel D. Salcedo <miguel@salcedo.cc>"]
 edition = "2018"
+license = "Apache-2.0"
+homepage = "https://github.com/misalcedo/ppp"
+repository = "https://github.com/misalcedo/ppp"
+documentation = "https://github.com/misalcedo/ppp"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
