@@ -1,6 +1,6 @@
 [package]
 name = "ppp"
-version = "0.2.0"
+version = "1.0.0"
 authors = ["Miguel D. Salcedo <miguel@salcedo.cc>"]
 edition = "2018"
 
