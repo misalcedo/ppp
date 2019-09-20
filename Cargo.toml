@@ -1,5 +1,6 @@
 [package]
 name = "ppp"
+description = "A Proxy Protocol Parser written in Rust. See HAProxy for the protocol specification."
 version = "1.0.0"
 authors = ["Miguel D. Salcedo <miguel@salcedo.cc>"]
 edition = "2018"
