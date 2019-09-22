@@ -281,6 +281,86 @@ mod tests {
     }
 
     #[test]
+    fn no_tlvs_unspec() {
+        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        input.extend_from_slice(PREFIX);
+        input.push(0x21);
+        input.push(0x00);
+        input.extend(&[0, 12]);
+        input.extend(&[127, 0, 0, 1]);
+        input.extend(&[127, 0, 0, 2]);
+        input.extend(&[0, 80]);
+        input.extend(&[1, 187]);
+
+        assert_eq!(
+            parse_v2_header(&input[..]),
+            Ok((
+                &[][..],
+                Header::new(
+                    Version::Two,
+                    Command::Proxy,
+                    Protocol::Unspecified,
+                    vec![],
+                    Addresses::None,
+                )
+            ))
+        );
+    }
+
+    #[test]
+    fn no_tlvs_unspec_stream() {
+        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        input.extend_from_slice(PREFIX);
+        input.push(0x21);
+        input.push(0x01);
+        input.extend(&[0, 8]);
+        input.extend(&[127, 0, 0, 1]);
+        input.extend(&[127, 0, 0, 2]);
+
+        assert_eq!(
+            parse_v2_header(&input[..]),
+            Ok((
+                &[][..],
+                Header::new(
+                    Version::Two,
+                    Command::Proxy,
+                    Protocol::Stream,
+                    vec![],
+                    Addresses::None,
+                )
+            ))
+        );
+    }
+
+    #[test]
+    fn no_tlvs_unspec_ipv4() {
+        let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        input.extend_from_slice(PREFIX);
+        input.push(0x21);
+        input.push(0x10);
+        input.extend(&[0, 8]);
+        input.extend(&[127, 0, 0, 1]);
+        input.extend(&[127, 0, 0, 2]);
+
+        assert_eq!(
+            parse_v2_header(&input[..]),
+            Ok((
+                &[][..],
+                Header::new(
+                    Version::Two,
+                    Command::Proxy,
+                    Protocol::Unspecified,
+                    vec![],
+                    ([127, 0, 0, 1], [127, 0, 0, 2]).into(),
+                )
+            ))
+        );
+    }
+
+    #[test]
     fn invalid_version() {
         let mut input: Vec<u8> = Vec::with_capacity(PREFIX.len());
 
