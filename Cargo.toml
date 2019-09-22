@@ -19,3 +19,14 @@ codecov = { repository = "misalcedo/ppp" }
 
 [dependencies]
 nom = "5"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "binary"
+harness = false
+
+[[bench]]
+name = "text"
+harness = false
