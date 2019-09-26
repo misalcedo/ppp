@@ -9,7 +9,7 @@ use nom::multi::separated_nonempty_list;
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use nom::IResult;
 
-use crate::model::{Addresses, Header};
+use crate::model::*;
 
 /// Parse a group of 4 hexadecimal characters as a string slice.
 fn parse_hexadecimal(input: &[u8]) -> IResult<&[u8], &str> {
@@ -152,6 +152,77 @@ pub fn parse_v1_header(input: &[u8]) -> IResult<&[u8], Header> {
         ),
         alt((parse_tcp4, parse_tcp6, parse_unknown)),
     )(input)
+}
+
+/// Generates a `String` representing a valid text header.
+/// If the header cannot be represented as a text header, for any reason, returns an `Err`.
+/// Potential reasons a header may not be valid include:
+/// * Must not have TLVs (Type-Length-Value entries)
+/// * Must have a version of One
+/// * Source and destination addresses must be None, IPv4 ports, or IPv6 with ports
+/// * Transport protocol must be Stream or Unspecified
+/// * Command must be Proxy
+pub fn to_string(header: Header) -> Result<String, ()> {
+    match header {
+        Header {
+            version: Version::One,
+            command: Command::Proxy,
+            protocol: Protocol::Stream,
+            addresses: Addresses::IPv4 {
+                source_address,
+                destination_address,
+                source_port: Some(source_port),
+                destination_port: Some(destination_port),
+            },
+            ..
+        } => {
+            match header.tlvs().next() {
+                Some(_) => Err(()),
+                None => Ok(format!(
+                    "PROXY TCP4 {}.{}.{}.{} {}.{}.{}.{} {} {}\r\n", 
+                    source_address[0], source_address[1], source_address[2], source_address[3],
+                    destination_address[0], destination_address[1], destination_address[2], destination_address[3],
+                    source_port,
+                    destination_port
+                ))
+            }
+        },
+        Header {
+            version: Version::One,
+            command: Command::Proxy,
+            protocol: Protocol::Stream,
+            addresses: Addresses::IPv6 {
+                source_address,
+                destination_address,
+                source_port: Some(source_port),
+                destination_port: Some(destination_port),
+            },
+            ..
+        } => {
+            match header.tlvs().next() {
+                Some(_) => Err(()),
+                None => Ok(format!(
+                    "PROXY TCP6 {:04X}:{:04X}:{:04X}:{:04X}:{:04X}:{:04X}:{:04X}:{:04X} {:04X}:{:04X}:{:04X}:{:04X}:{:04X}:{:04X}:{:04X}:{:04X} {} {}\r\n",
+                    source_address[0], source_address[1], source_address[2], source_address[3],
+                    source_address[4], source_address[5], source_address[6], source_address[7],
+                    destination_address[0], destination_address[1], destination_address[2], destination_address[3],
+                    destination_address[4], destination_address[5], destination_address[6], destination_address[7],
+                    source_port,
+                    destination_port
+                ))
+            }
+        },
+        Header {
+            version: Version::One,
+            command: Command::Proxy,
+            protocol: Protocol::Unspecified,
+            addresses: Addresses::None,
+            ..
+        } => {
+            Ok(String::from("PROXY UNKNOWN\r\n"))
+        },
+        _ => Err(())
+    }
 }
 
 #[cfg(test)]
@@ -401,5 +472,164 @@ mod tests {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535 \r\n".as_bytes();
 
         assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
+    }
+
+    #[test]
+    fn tcp6_to_string() {
+        let text = "PROXY TCP6 1234:5678:90AB:CDEF:FEDC:BA09:8765:4321 4321:8765:BA09:FEDC:CDEF:90AB:5678:1234 443 65535\r\n";
+        let header = Header::version_1(
+            (
+                [
+                    0x1234, 0x5678, 0x90AB, 0xCDEF, 0xFEDC, 0xBA09, 0x8765, 0x4321,
+                ],
+                [
+                    0x4321, 0x8765, 0xBA09, 0xFEDC, 0xCDEF, 0x90AB, 0x5678, 0x01234,
+                ],
+                443,
+                65535,
+            )
+                .into(),
+        );
+
+        assert_eq!(to_string(header), Ok(String::from(text)));
+    }
+
+    #[test]
+    fn tcp4_to_string() {
+        let text = "PROXY TCP4 127.0.1.2 192.168.1.101 80 443\r\n";
+        let header = Header::version_1(([127, 0, 1, 2], [192, 168, 1, 101], 80, 443).into());
+
+        assert_eq!(to_string(header), Ok(String::from(text)));
+    }
+
+    #[test]
+    fn unknown_to_string() {
+        let text = "PROXY UNKNOWN\r\n";
+        let header = Header::unknown();
+
+        assert_eq!(to_string(header), Ok(String::from(text)));
+    }
+
+    #[test]
+    fn version_2_to_string() {
+        let header = Header::no_address(Version::Two, Command::Proxy, Protocol::Unspecified);
+
+        assert!(to_string(header).is_err());
+    }
+
+    #[test]
+    fn datagram_to_string() {
+        let header = Header::new(
+            Version::One,
+            Command::Proxy,
+            Protocol::Datagram,
+            vec![],
+            (
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                ],
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1,
+                ],
+                80,
+                443,
+            )
+                .into(),
+        );
+
+        assert!(to_string(header).is_err());
+    }
+
+    #[test]
+    fn ipv4_tlvs_to_string() {
+        let header = Header::new(
+            Version::One,
+            Command::Proxy,
+            Protocol::Stream,
+            vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
+            ([127, 0, 0, 1], [192, 168, 1, 2], 80, 443).into(),
+        );
+
+        assert!(to_string(header).is_err());
+    }
+
+    #[test]
+    fn ipv6_tlvs_to_string() {
+        let header = Header::new(
+            Version::One,
+            Command::Proxy,
+            Protocol::Stream,
+            vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
+            (
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                ],
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1,
+                ],
+                80,
+                443,
+            )
+                .into(),
+        );
+
+        assert!(to_string(header).is_err());
+    }
+
+    #[test]
+    fn local_to_string() {
+        let header = Header::new(
+            Version::One,
+            Command::Local,
+            Protocol::Stream,
+            vec![],
+            (
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                ],
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1,
+                ],
+                80,
+                443,
+            )
+                .into(),
+        );
+
+        assert!(to_string(header).is_err());
+    }
+
+    #[test]
+    fn ipv4_no_port_to_string() {
+        let header = Header::new(
+            Version::One,
+            Command::Proxy,
+            Protocol::Stream,
+            vec![],
+            ([127, 0, 0, 1], [192, 168, 1, 2]).into(),
+        );
+
+        assert!(to_string(header).is_err());
+    }
+
+    #[test]
+    fn ipv6_no_port_to_string() {
+        let header = Header::new(
+            Version::One,
+            Command::Proxy,
+            Protocol::Stream,
+            vec![],
+            (
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                ],
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1,
+                ],
+            )
+                .into(),
+        );
+
+        assert!(to_string(header).is_err());
     }
 }
