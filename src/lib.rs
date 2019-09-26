@@ -1,4 +1,7 @@
 //! A Proxy Protocol Parser written in Rust using nom.
+//! Supports both text and binary versions of the header.
+//! A general function is provided to parse either version using a single call.
+//! When using the general function, performance depends almost entirely on the type of header.
 
 use nom::branch::alt;
 
@@ -18,6 +21,7 @@ pub mod model;
 pub mod error;
 
 /// Parses a version 1 header of HAProxy's proxy protocol.
+/// Supports TCP with IPv4 and IPv6 addresses, as well as UNKNOWN address information.
 ///
 /// # Examples
 /// Partial
@@ -54,6 +58,7 @@ pub fn parse_v1_header(input: &[u8]) -> ParseResult<&[u8]> {
 
 /// Parse the first 16 bytes of the protocol header; the only required payload.
 /// The 12 byte signature and 4 bytes used to describe the connection and header information.
+/// The adress portion of the header, as denoted by the last 2 bytes of the required payload, must be present a header with invalid addresses or TLVs (Type-Length-Value) can be determined to be invalid.
 ///
 /// # Examples
 /// TCP over IPv6 with some TLVs

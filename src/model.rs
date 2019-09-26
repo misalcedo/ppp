@@ -1,6 +1,10 @@
 use std::boxed::Box;
 use std::slice::Iter;
 
+/// A `Result` type alias.
+/// The `Ok` variant is a tuple of the remaining part of the input (not consumed in parsing the header).
+/// The `Err` variant denotes whether the parser does contains a valid header,
+/// or if more bytes are necesssary to parse a header or determine if the input is invalid.
 pub type ParseResult<T> = Result<(T, Header), crate::error::ParseError>;
 
 /// The version of the proxy protocol header.
