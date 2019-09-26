@@ -4,6 +4,7 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/mlr10t4o0l5300nw?svg=true)](https://ci.appveyor.com/project/misalcedo/ppp)
 [![Coverage](https://codecov.io/gh/misalcedo/ppp/branch/master/graph/badge.svg)](https://codecov.io/gh/misalcedo/ppp)
 [![Crates.io Version](https://img.shields.io/crates/v/ppp.svg)](https://crates.io/crates/ppp)
+[![Docs.rs Version](https://docs.rs/ppp/badge.svg)](https://docs.rs/ppp)
 
 A Proxy Protocol Parser written in Rust.
 See [HAProxy](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt) for the protocol specification.
