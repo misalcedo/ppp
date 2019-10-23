@@ -10,7 +10,7 @@ pub type ParseResult<T> = Result<(T, Header), crate::error::ParseError>;
 /// The version of the proxy protocol header.
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Copy, Clone)]
 pub enum Version {
-    One,
+    One = 1,
     Two,
 }
 
@@ -48,9 +48,9 @@ impl Command {
 /// The network protocol used by the client.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum Protocol {
-    Stream,
-    Datagram,
     Unspecified,
+    Stream,
+    Datagram
 }
 
 impl Protocol {

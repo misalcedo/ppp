@@ -248,6 +248,153 @@ fn parse_family_protocol(input: &[u8]) -> IResult<&[u8], (AddressFamily, Protoco
     ))(input)
 }
 
+/// Convert a version 2 header into a vector of bytes.
+/// Version one headers return an error result.
+pub fn to_bytes(header: Header) -> Result<Vec<u8>, ()> {
+    match header {
+        Header {
+            version,
+            command,
+            protocol,
+            addresses: Addresses::IPv4 {
+                source_address,
+                destination_address,
+                source_port: Some(source_port),
+                destination_port: Some(destination_port),
+            },
+            ..
+        } => {
+            let tlv_size: usize = header.tlvs().map(|tlv| 3 + tlv.len()).sum();
+            let address_length = 12 + tlv_size;
+            let mut buffer = Vec::with_capacity(PREFIX.len() + 4 + address_length);
+
+            let version_command_byte = ((version as u8) << 4) | (command as u8);
+            let address_protocol_byte = (1 << 4) | (protocol as u8);
+
+            buffer.extend_from_slice(PREFIX);
+            buffer.push(version_command_byte);
+            buffer.push(address_protocol_byte);
+            buffer.extend_from_slice(&(address_length as u16).to_be_bytes()[..]);
+
+            buffer.extend_from_slice(&source_address[..]);
+            buffer.extend_from_slice(&destination_address[..]);
+            buffer.extend_from_slice(&source_port.to_be_bytes()[..]);
+            buffer.extend_from_slice(&destination_port.to_be_bytes()[..]);
+
+            
+            for tlv in header.tlvs() {        
+                buffer.push(tlv.value_type());
+                buffer.extend_from_slice(&(tlv.len() as u16).to_be_bytes()[..]);
+                buffer.extend_from_slice(tlv.value());
+            }
+
+            Ok(buffer)
+        },
+        Header {
+            version,
+            command,
+            protocol,
+            addresses: Addresses::IPv6 {
+                source_address,
+                destination_address,
+                source_port: Some(source_port),
+                destination_port: Some(destination_port),
+            },
+            ..
+        } => {
+            let tlv_size: usize = header.tlvs().map(|tlv| 3 + tlv.len()).sum();
+            let address_length = 36 + tlv_size;
+            let mut buffer = Vec::with_capacity(PREFIX.len() + 4 + address_length);
+
+            let version_command_byte = ((version as u8) << 4) | (command as u8);
+            let address_protocol_byte = (2 << 4) | (protocol as u8);
+
+            buffer.extend_from_slice(PREFIX);
+            buffer.push(version_command_byte);
+            buffer.push(address_protocol_byte);
+            buffer.extend_from_slice(&(address_length as u16).to_be_bytes()[..]);
+
+            for byte in source_address.iter() {
+                buffer.extend_from_slice(&byte.to_be_bytes()[..]);
+            }
+
+            for byte in destination_address.iter() {
+                buffer.extend_from_slice(&byte.to_be_bytes()[..]);
+            }
+
+            buffer.extend_from_slice(&source_port.to_be_bytes()[..]);
+            buffer.extend_from_slice(&destination_port.to_be_bytes()[..]);
+            
+            for tlv in header.tlvs() {        
+                buffer.push(tlv.value_type());
+                buffer.extend_from_slice(&(tlv.len() as u16).to_be_bytes()[..]);
+                buffer.extend_from_slice(tlv.value());
+            }
+
+            Ok(buffer)
+        },
+        Header {
+            version,
+            command,
+            protocol,
+            addresses: Addresses::Unix {
+                ref source_address,
+                ref destination_address
+            },
+            ..
+        } => {
+            let tlv_size: usize = header.tlvs().map(|tlv| 3 + tlv.len()).sum();
+            let address_length = 216 + tlv_size;
+            let mut buffer = Vec::with_capacity(PREFIX.len() + 4 + address_length);
+
+            let version_command_byte = ((version as u8) << 4) | (command as u8);
+            let address_protocol_byte = (3 << 4) | (protocol as u8);
+
+            buffer.extend_from_slice(PREFIX);
+            buffer.push(version_command_byte);
+            buffer.push(address_protocol_byte);
+            buffer.extend_from_slice(&(address_length as u16).to_be_bytes()[..]);
+            
+            for byte in source_address.iter() {
+                buffer.extend_from_slice(&byte.to_be_bytes()[..]);
+            }
+
+            for byte in destination_address.iter() {
+                buffer.extend_from_slice(&byte.to_be_bytes()[..]);
+            }
+            
+            for tlv in header.tlvs() {        
+                buffer.push(tlv.value_type());
+                buffer.extend_from_slice(&(tlv.len() as u16).to_be_bytes()[..]);
+                buffer.extend_from_slice(tlv.value());
+            }
+
+            Ok(buffer)
+        },
+        Header {
+            version,
+            command,
+            protocol,
+            addresses: Addresses::None,
+            ..
+        } => {
+            let mut buffer = Vec::with_capacity(PREFIX.len() + 4);
+
+            let version_command_byte = ((version as u8) << 4) | (command as u8);
+            let address_protocol_byte = (0 << 4) | (protocol as u8);
+
+            buffer.extend_from_slice(PREFIX);
+            buffer.push(version_command_byte);
+            buffer.push(address_protocol_byte);
+            buffer.push(0);
+            buffer.push(0);
+
+            Ok(buffer)
+        },
+        _ => Err(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -735,5 +882,107 @@ mod tests {
         let result = parse_v2_header(&bytes[..]);
 
         assert!(result.unwrap_err().is_incomplete());
+    }
+
+    #[test]
+    fn to_bytes_ipv4_without_tlvs() {
+        let header = Header::new(
+                    Version::Two,
+                    Command::Proxy,
+                    Protocol::Stream,
+                    vec![],
+                    ([127, 0, 0, 1], [127, 0, 0, 2], 80, 443).into(),
+                );
+        let mut output: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        output.extend_from_slice(PREFIX);
+        output.push(0x21);
+        output.push(0x11);
+        output.extend(&[0, 12]);
+        output.extend(&[127, 0, 0, 1]);
+        output.extend(&[127, 0, 0, 2]);
+        output.extend(&[0, 80]);
+        output.extend(&[1, 187]);
+
+        assert_eq!(to_bytes(header), Ok(output));
+    }
+
+    #[test]
+    fn to_bytes_unspec() {
+        let header = Header::new(
+                    Version::Two,
+                    Command::Local,
+                    Protocol::Unspecified,
+                    vec![],
+                    Addresses::None,
+                );
+        let mut output: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        output.extend_from_slice(PREFIX);
+        output.push(0x20);
+        output.push(0x00);
+        output.extend(&[0, 0]);
+
+        assert_eq!(to_bytes(header), Ok(output));
+    }
+
+    #[test]
+    fn to_bytes_unix_with_tlvs() {
+        let header = Header::new(
+                    Version::Two,
+                    Command::Proxy,
+                    Protocol::Unspecified,
+                    vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
+                    ([0xFFFFFFFFu32; 27], [0xAAAAAAAAu32; 27]).into(),
+                );
+        let mut output: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        output.extend_from_slice(PREFIX);
+        output.push(0x21);
+        output.push(0x30);
+        output.extend(&[0, 225]);
+        output.extend(&[0xFFu8; 108][..]);
+        output.extend(&[0xAAu8; 108][..]);
+        output.extend(&[1, 0, 1, 5]);
+        output.extend(&[2, 0, 2, 5, 5]);
+
+        assert_eq!(to_bytes(header), Ok(output));
+    }
+
+    #[test]
+    fn to_bytes_ipv6_with_tlvs() {
+        let header = Header::new(
+                    Version::Two,
+                    Command::Proxy,
+                    Protocol::Stream,
+                    vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
+                    (
+                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF2],
+                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1],
+                        80,
+                        443
+                    )
+                        .into(),
+                );
+        let mut output: Vec<u8> = Vec::with_capacity(PREFIX.len());
+
+        output.extend_from_slice(PREFIX);
+        output.push(0x21);
+        output.push(0x21);
+        output.extend(&[0, 45]);
+        output.extend(&[
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xF2,
+        ]);
+        output.extend(&[
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xF1,
+        ]);
+        output.extend(&[0, 80]);
+        output.extend(&[1, 187]);
+        output.extend(&[1, 0, 1, 5]);
+        output.extend(&[2, 0, 2, 5, 5]);
+
+        assert_eq!(to_bytes(header), Ok(output));
     }
 }
