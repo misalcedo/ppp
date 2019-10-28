@@ -96,6 +96,61 @@ pub fn to_string(header: model::Header) -> Result<String, ()> {
     text::to_string(header)
 }
 
+/// Creates a `String` from a valid Version 1 header.
+/// See the protocol specification for the definition of valid text headers.
+/// 
+/// # Examples
+/// TCP6 with TLVs
+/// ```rust
+/// # use ppp::model::{Header, Tlv, Version, Command, Protocol};
+///
+/// let header = Header::new(
+///                    Version::Two,
+///                    Command::Proxy,
+///                    Protocol::Stream,
+///                    vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
+///                    (
+///                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF2],
+///                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1],
+///                        80,
+///                        443
+///                    )
+///                        .into(),
+///                );
+/// let mut output: Vec<u8> = Vec::with_capacity(12);
+/// 
+/// output.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
+/// output.push(0x21);
+/// output.push(0x21);
+/// output.extend(&[0, 45]);
+/// output.extend(&[
+///     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+///     0xFF, 0xF2,
+/// ]);
+/// output.extend(&[
+///     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+///     0xFF, 0xF1,
+/// ]);
+/// output.extend(&[0, 80]);
+/// output.extend(&[1, 187]);
+/// output.extend(&[1, 0, 1, 5]);
+/// output.extend(&[2, 0, 2, 5, 5]);
+/// 
+/// assert_eq!(ppp::to_bytes(header), Ok(output));
+/// ```
+///
+/// Invalid Binary Header
+/// ```rust
+/// # use ppp::model::{Header, Version, Command, Protocol};
+///
+/// let header = Header::unknown();
+///
+/// assert!(ppp::to_bytes(header).is_err());
+///```
+pub fn to_bytes(header: model::Header) -> Result<Vec<u8>, ()> {
+    binary::to_bytes(header)
+}
+
 /// Parse the first 16 bytes of the protocol header; the only required payload.
 /// The 12 byte signature and 4 bytes used to describe the connection and header information.
 /// The adress portion of the header, as denoted by the last 2 bytes of the required payload, must be present a header with invalid addresses or TLVs (Type-Length-Value) can be determined to be invalid.

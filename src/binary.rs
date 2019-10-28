@@ -253,6 +253,12 @@ fn parse_family_protocol(input: &[u8]) -> IResult<&[u8], (AddressFamily, Protoco
 pub fn to_bytes(header: Header) -> Result<Vec<u8>, ()> {
     match header {
         Header {
+            version: Version::One,
+            ..
+        } => {
+            Err(())
+        },
+        Header {
             version,
             command,
             protocol,
@@ -984,5 +990,11 @@ mod tests {
         output.extend(&[2, 0, 2, 5, 5]);
 
         assert_eq!(to_bytes(header), Ok(output));
+    }
+
+    #[test]
+    fn to_bytes_verion_one() {
+        let header = Header::unknown();
+        assert!(to_bytes(header).is_err());
     }
 }
