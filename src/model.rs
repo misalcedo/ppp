@@ -50,7 +50,7 @@ impl Command {
 pub enum Protocol {
     Unspecified,
     Stream,
-    Datagram
+    Datagram,
 }
 
 impl Protocol {

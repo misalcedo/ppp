@@ -58,7 +58,7 @@ pub fn parse_v1_header(input: &[u8]) -> ParseResult<&[u8]> {
 
 /// Creates a `String` from a valid Version 1 header.
 /// See the protocol specification for the definition of valid text headers.
-/// 
+///
 /// # Examples
 /// TCP4
 /// ```rust
@@ -98,7 +98,7 @@ pub fn to_string(header: model::Header) -> Result<String, ()> {
 
 /// Creates a `String` from a valid Version 1 header.
 /// See the protocol specification for the definition of valid text headers.
-/// 
+///
 /// # Examples
 /// TCP6 with TLVs
 /// ```rust
@@ -118,7 +118,7 @@ pub fn to_string(header: model::Header) -> Result<String, ()> {
 ///                        .into(),
 ///                );
 /// let mut output: Vec<u8> = Vec::with_capacity(12);
-/// 
+///
 /// output.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
 /// output.push(0x21);
 /// output.push(0x21);
@@ -135,7 +135,7 @@ pub fn to_string(header: model::Header) -> Result<String, ()> {
 /// output.extend(&[1, 187]);
 /// output.extend(&[1, 0, 1, 5]);
 /// output.extend(&[2, 0, 2, 5, 5]);
-/// 
+///
 /// assert_eq!(ppp::to_bytes(header), Ok(output));
 /// ```
 ///

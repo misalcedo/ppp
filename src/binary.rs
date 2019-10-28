@@ -255,19 +255,18 @@ pub fn to_bytes(header: Header) -> Result<Vec<u8>, ()> {
         Header {
             version: Version::One,
             ..
-        } => {
-            Err(())
-        },
+        } => Err(()),
         Header {
             version,
             command,
             protocol,
-            addresses: Addresses::IPv4 {
-                source_address,
-                destination_address,
-                source_port: Some(source_port),
-                destination_port: Some(destination_port),
-            },
+            addresses:
+                Addresses::IPv4 {
+                    source_address,
+                    destination_address,
+                    source_port: Some(source_port),
+                    destination_port: Some(destination_port),
+                },
             ..
         } => {
             let tlv_size: usize = header.tlvs().map(|tlv| 3 + tlv.len()).sum();
@@ -287,25 +286,25 @@ pub fn to_bytes(header: Header) -> Result<Vec<u8>, ()> {
             buffer.extend_from_slice(&source_port.to_be_bytes()[..]);
             buffer.extend_from_slice(&destination_port.to_be_bytes()[..]);
 
-            
-            for tlv in header.tlvs() {        
+            for tlv in header.tlvs() {
                 buffer.push(tlv.value_type());
                 buffer.extend_from_slice(&(tlv.len() as u16).to_be_bytes()[..]);
                 buffer.extend_from_slice(tlv.value());
             }
 
             Ok(buffer)
-        },
+        }
         Header {
             version,
             command,
             protocol,
-            addresses: Addresses::IPv6 {
-                source_address,
-                destination_address,
-                source_port: Some(source_port),
-                destination_port: Some(destination_port),
-            },
+            addresses:
+                Addresses::IPv6 {
+                    source_address,
+                    destination_address,
+                    source_port: Some(source_port),
+                    destination_port: Some(destination_port),
+                },
             ..
         } => {
             let tlv_size: usize = header.tlvs().map(|tlv| 3 + tlv.len()).sum();
@@ -330,23 +329,24 @@ pub fn to_bytes(header: Header) -> Result<Vec<u8>, ()> {
 
             buffer.extend_from_slice(&source_port.to_be_bytes()[..]);
             buffer.extend_from_slice(&destination_port.to_be_bytes()[..]);
-            
-            for tlv in header.tlvs() {        
+
+            for tlv in header.tlvs() {
                 buffer.push(tlv.value_type());
                 buffer.extend_from_slice(&(tlv.len() as u16).to_be_bytes()[..]);
                 buffer.extend_from_slice(tlv.value());
             }
 
             Ok(buffer)
-        },
+        }
         Header {
             version,
             command,
             protocol,
-            addresses: Addresses::Unix {
-                ref source_address,
-                ref destination_address
-            },
+            addresses:
+                Addresses::Unix {
+                    ref source_address,
+                    ref destination_address,
+                },
             ..
         } => {
             let tlv_size: usize = header.tlvs().map(|tlv| 3 + tlv.len()).sum();
@@ -360,7 +360,7 @@ pub fn to_bytes(header: Header) -> Result<Vec<u8>, ()> {
             buffer.push(version_command_byte);
             buffer.push(address_protocol_byte);
             buffer.extend_from_slice(&(address_length as u16).to_be_bytes()[..]);
-            
+
             for byte in source_address.iter() {
                 buffer.extend_from_slice(&byte.to_be_bytes()[..]);
             }
@@ -368,15 +368,15 @@ pub fn to_bytes(header: Header) -> Result<Vec<u8>, ()> {
             for byte in destination_address.iter() {
                 buffer.extend_from_slice(&byte.to_be_bytes()[..]);
             }
-            
-            for tlv in header.tlvs() {        
+
+            for tlv in header.tlvs() {
                 buffer.push(tlv.value_type());
                 buffer.extend_from_slice(&(tlv.len() as u16).to_be_bytes()[..]);
                 buffer.extend_from_slice(tlv.value());
             }
 
             Ok(buffer)
-        },
+        }
         Header {
             version,
             command,
@@ -387,7 +387,7 @@ pub fn to_bytes(header: Header) -> Result<Vec<u8>, ()> {
             let mut buffer = Vec::with_capacity(PREFIX.len() + 4);
 
             let version_command_byte = ((version as u8) << 4) | (command as u8);
-            let address_protocol_byte = (0 << 4) | (protocol as u8);
+            let address_protocol_byte = protocol as u8;
 
             buffer.extend_from_slice(PREFIX);
             buffer.push(version_command_byte);
@@ -396,8 +396,8 @@ pub fn to_bytes(header: Header) -> Result<Vec<u8>, ()> {
             buffer.push(0);
 
             Ok(buffer)
-        },
-        _ => Err(())
+        }
+        _ => Err(()),
     }
 }
 
@@ -893,12 +893,12 @@ mod tests {
     #[test]
     fn to_bytes_ipv4_without_tlvs() {
         let header = Header::new(
-                    Version::Two,
-                    Command::Proxy,
-                    Protocol::Stream,
-                    vec![],
-                    ([127, 0, 0, 1], [127, 0, 0, 2], 80, 443).into(),
-                );
+            Version::Two,
+            Command::Proxy,
+            Protocol::Stream,
+            vec![],
+            ([127, 0, 0, 1], [127, 0, 0, 2], 80, 443).into(),
+        );
         let mut output: Vec<u8> = Vec::with_capacity(PREFIX.len());
 
         output.extend_from_slice(PREFIX);
@@ -916,12 +916,12 @@ mod tests {
     #[test]
     fn to_bytes_unspec() {
         let header = Header::new(
-                    Version::Two,
-                    Command::Local,
-                    Protocol::Unspecified,
-                    vec![],
-                    Addresses::None,
-                );
+            Version::Two,
+            Command::Local,
+            Protocol::Unspecified,
+            vec![],
+            Addresses::None,
+        );
         let mut output: Vec<u8> = Vec::with_capacity(PREFIX.len());
 
         output.extend_from_slice(PREFIX);
@@ -935,12 +935,12 @@ mod tests {
     #[test]
     fn to_bytes_unix_with_tlvs() {
         let header = Header::new(
-                    Version::Two,
-                    Command::Proxy,
-                    Protocol::Unspecified,
-                    vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
-                    ([0xFFFFFFFFu32; 27], [0xAAAAAAAAu32; 27]).into(),
-                );
+            Version::Two,
+            Command::Proxy,
+            Protocol::Unspecified,
+            vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
+            ([0xFFFFFFFFu32; 27], [0xAAAAAAAAu32; 27]).into(),
+        );
         let mut output: Vec<u8> = Vec::with_capacity(PREFIX.len());
 
         output.extend_from_slice(PREFIX);
@@ -958,18 +958,22 @@ mod tests {
     #[test]
     fn to_bytes_ipv6_with_tlvs() {
         let header = Header::new(
-                    Version::Two,
-                    Command::Proxy,
-                    Protocol::Stream,
-                    vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
-                    (
-                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF2],
-                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1],
-                        80,
-                        443
-                    )
-                        .into(),
-                );
+            Version::Two,
+            Command::Proxy,
+            Protocol::Stream,
+            vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
+            (
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF2,
+                ],
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1,
+                ],
+                80,
+                443,
+            )
+                .into(),
+        );
         let mut output: Vec<u8> = Vec::with_capacity(PREFIX.len());
 
         output.extend_from_slice(PREFIX);

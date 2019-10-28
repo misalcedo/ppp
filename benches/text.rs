@@ -4,7 +4,8 @@ extern crate criterion;
 use criterion::black_box;
 use criterion::Criterion;
 
-use ppp::parse_header;
+use ppp::model::*;
+use ppp::{parse_header, to_string};
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("ppp text tcp4", |b| {
@@ -24,6 +25,36 @@ fn criterion_benchmark(c: &mut Criterion) {
                     .as_bytes(),
             ))
         })
+    });
+
+    c.bench_function("ppp header to text tcp4", |b| {
+        b.iter(|| {
+            to_string(black_box(Header::version_1(
+                ([127, 0, 1, 2], [192, 168, 1, 101], 80, 443).into(),
+            )))
+        })
+    });
+
+    c.bench_function("ppp header to text tcp6", |b| {
+        b.iter(|| {
+            to_string(black_box(Header::version_1(
+                (
+                    [
+                        0x1234, 0x5678, 0x90AB, 0xCDEF, 0xFEDC, 0xBA09, 0x8765, 0x4321,
+                    ],
+                    [
+                        0x4321, 0x8765, 0xBA09, 0xFEDC, 0xCDEF, 0x90AB, 0x5678, 0x01234,
+                    ],
+                    443,
+                    65535,
+                )
+                    .into(),
+            )))
+        })
+    });
+
+    c.bench_function("ppp header to text unknown", |b| {
+        b.iter(|| to_string(black_box(Header::unknown())))
     });
 }
 

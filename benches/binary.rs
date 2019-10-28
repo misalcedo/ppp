@@ -4,7 +4,8 @@ extern crate criterion;
 use criterion::black_box;
 use criterion::Criterion;
 
-use ppp::parse_header;
+use ppp::model::*;
+use ppp::{parse_header, to_bytes};
 
 fn ipv6_input() -> Vec<u8> {
     let prefix = b"\r\n\r\n\0\r\nQUIT\n";
@@ -59,6 +60,40 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("ppp binary IPv4 with TLVs", |b| {
         b.iter(|| parse_header(black_box(ipv4.as_slice())))
+    });
+
+    c.bench_function("ppp header to bytes binary IPv6 without TLVs", |b| {
+        b.iter(|| {
+            to_bytes(black_box(Header::new(
+                Version::Two,
+                Command::Proxy,
+                Protocol::Stream,
+                vec![],
+                (
+                    [
+                        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF2,
+                    ],
+                    [
+                        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1,
+                    ],
+                    80,
+                    443,
+                )
+                    .into(),
+            )))
+        })
+    });
+
+    c.bench_function("ppp header to bytes binary IPv4 with TLVs", |b| {
+        b.iter(|| {
+            to_bytes(black_box(Header::new(
+                Version::Two,
+                Command::Proxy,
+                Protocol::Stream,
+                vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
+                ([127, 0, 0, 1], [127, 0, 0, 2], 80, 443).into(),
+            )))
+        })
     });
 }
 

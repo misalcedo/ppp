@@ -15,42 +15,72 @@ Ran `cargo bench` on a desktop with a hexa-core i7 processor with hyper-threadin
 ```bash
      Running target/release/deps/binary-2681142d001dfe3e
 ppp binary IPv6 without TLVs                                                                            
-                        time:   [273.48 ns 273.81 ns 274.14 ns]
-                        change: [-0.2142% -0.0984% +0.0580%] (p = 0.15 > 0.05)
-                        No change in performance detected.
-Found 6 outliers among 100 measurements (6.00%)
-  4 (4.00%) high mild
-  2 (2.00%) high severe
-
-ppp binary IPv4 with TLVs                                                                            
-                        time:   [84.828 ns 85.427 ns 86.234 ns]
-                        change: [+0.0067% +0.7984% +1.7888%] (p = 0.08 > 0.05)
-                        No change in performance detected.
-Found 9 outliers among 100 measurements (9.00%)
-  1 (1.00%) high mild
-  8 (8.00%) high severe
-
-     Running target/release/deps/text-fb185ef299e3eb06
-ppp text tcp4           time:   [381.03 ns 381.78 ns 382.64 ns]                          
-                        change: [-0.2661% +0.0295% +0.3722%] (p = 0.86 > 0.05)
-                        No change in performance detected.
-Found 7 outliers among 100 measurements (7.00%)
-  3 (3.00%) high mild
+                        time:   [281.15 ns 282.12 ns 283.49 ns]
+                        change: [-7.6818% -6.1635% -4.5902%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
   4 (4.00%) high severe
 
-ppp text tcp6           time:   [942.93 ns 943.65 ns 944.54 ns]                           
-                        change: [-0.5574% -0.1831% +0.2057%] (p = 0.36 > 0.05)
+ppp binary IPv4 with TLVs                                                                            
+                        time:   [84.356 ns 84.433 ns 84.505 ns]
+                        change: [-1.6253% -0.7449% +0.0210%] (p = 0.08 > 0.05)
                         No change in performance detected.
-Found 6 outliers among 100 measurements (6.00%)
-  4 (4.00%) high mild
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) low mild
+
+ppp header to bytes binary IPv6 without TLVs                                                                            
+                        time:   [148.49 ns 148.53 ns 148.58 ns]
+                        change: [-3.5002% -2.2646% -1.1667%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
   2 (2.00%) high severe
 
-ppp text tcp6 compact   time:   [746.44 ns 746.70 ns 746.98 ns]                                   
-                        change: [+0.5250% +0.5866% +0.6479%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 11 outliers among 100 measurements (11.00%)
-  2 (2.00%) low severe
-  1 (1.00%) low mild
-  5 (5.00%) high mild
-  3 (3.00%) high severe
+ppp header to bytes binary IPv4 with TLVs                                                                            
+                        time:   [158.92 ns 160.10 ns 161.47 ns]
+                        change: [-2.1441% -1.0137% +0.0999%] (p = 0.08 > 0.05)
+                        No change in performance detected.
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) high mild
+  5 (5.00%) high severe
+
+     Running target/release/deps/text-fb185ef299e3eb06
+ppp text tcp4           time:   [368.56 ns 368.84 ns 369.27 ns]                          
+                        change: [-6.0919% -4.1408% -2.4502%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 10 outliers among 100 measurements (10.00%)
+  4 (4.00%) high mild
+  6 (6.00%) high severe
+
+ppp text tcp6           time:   [932.82 ns 940.16 ns 949.77 ns]                           
+                        change: [-0.9088% -0.3712% +0.1755%] (p = 0.20 > 0.05)
+                        No change in performance detected.
+Found 16 outliers among 100 measurements (16.00%)
+  3 (3.00%) high mild
+  13 (13.00%) high severe
+
+ppp text tcp6 compact   time:   [731.10 ns 731.63 ns 732.36 ns]                                   
+                        change: [-2.6089% -1.8543% -1.1878%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 22 outliers among 100 measurements (22.00%)
+  1 (1.00%) low severe
+  3 (3.00%) low mild
+  3 (3.00%) high mild
+  15 (15.00%) high severe
+
+ppp header to text tcp4 time:   [236.54 ns 236.61 ns 236.68 ns]                                    
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+
+ppp header to text tcp6 time:   [536.64 ns 539.69 ns 543.51 ns]                                     
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) high mild
+  5 (5.00%) high severe
+
+ppp header to text unknown                                                                            
+                        time:   [51.601 ns 51.625 ns 51.651 ns]
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
 ```
