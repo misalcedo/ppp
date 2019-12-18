@@ -1,3 +1,5 @@
+use std::net::{AddrParseError, Ipv6Addr};
+
 use nom::branch::alt;
 use nom::bytes;
 use nom::bytes::complete::{tag, take_while_m_n};
@@ -12,8 +14,8 @@ use crate::model::*;
 /// Parse a text IPv6 address.
 fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
     map_res(map_res(take_until(" "), std::str::from_utf8), |s: &str| {
-        let ip: std::net::Ipv6Addr = s.parse()?;
-        Ok::<_, std::net::AddrParseError>(ip.segments())
+        let ip: Ipv6Addr = s.parse()?;
+        Ok::<_, AddrParseError>(ip.segments())
     })(input)
 }
 
