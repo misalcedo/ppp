@@ -1,71 +1,22 @@
+use std::net::{AddrParseError, Ipv6Addr};
+
 use nom::branch::alt;
 use nom::bytes;
 use nom::bytes::complete::{tag, take_while_m_n};
 use nom::bytes::streaming::take_until;
 use nom::character::complete::digit1;
-use nom::character::is_hex_digit;
-use nom::combinator::{all_consuming, map, map_parser, map_res, opt, verify};
-use nom::multi::separated_nonempty_list;
+use nom::combinator::{all_consuming, map, map_parser, map_res, verify};
 use nom::sequence::{delimited, pair, preceded, terminated, tuple};
 use nom::IResult;
 
 use crate::model::*;
 
-/// Parse a group of 4 hexadecimal characters as a string slice.
-fn parse_hexadecimal(input: &[u8]) -> IResult<&[u8], &str> {
-    map_res(take_while_m_n(4, 4, is_hex_digit), std::str::from_utf8)(input)
-}
-
-/// Parse a single group of hexadecimal characters in a text IPv6 address (i.e. the characters between colons).
-fn parse_ipv6_group(input: &[u8]) -> IResult<&[u8], Option<u16>> {
-    opt(map_res(parse_hexadecimal, |s| u16::from_str_radix(s, 16)))(input)
-}
-
 /// Parse a text IPv6 address.
 fn parse_ipv6_address(input: &[u8]) -> IResult<&[u8], [u16; 8]> {
-    map(
-        verify(
-            separated_nonempty_list(tag(":"), parse_ipv6_group),
-            |groups: &Vec<Option<u16>>| {
-                let all_present = groups.iter().filter(|x| x.is_some()).count() == 8;
-
-                all_present || {
-                    let bounded_length = groups.len() >= 3 && groups.len() <= 8;
-                    let no_more_than_one_empty_group =
-                        groups.iter().filter(|x| x.is_none()).count() <= 1;
-                    let starts_with_some = groups[0].is_some();
-                    let ends_with_some = groups[groups.len() - 1].is_some();
-
-                    bounded_length
-                        && starts_with_some
-                        && ends_with_some
-                        && no_more_than_one_empty_group
-                }
-            },
-        ),
-        |groups| {
-            let mut address: [u16; 8] = [0; 8];
-            let mut index = 0;
-
-            groups.iter().for_each(|group| match group {
-                Some(a) => {
-                    address[index] = *a;
-                    index += 1;
-                }
-                None => {
-                    let none_len = 8 - groups.iter().filter(|x| x.is_some()).count();
-
-                    for offset in 0..none_len {
-                        address[index + offset] = 0;
-                    }
-
-                    index += none_len;
-                }
-            });
-
-            address
-        },
-    )(input)
+    map_res(map_res(take_until(" "), std::str::from_utf8), |s: &str| {
+        let ip: Ipv6Addr = s.parse()?;
+        Ok::<_, AddrParseError>(ip.segments())
+    })(input)
 }
 
 /// Parse a header with the TCP protocol and a generic address family.
@@ -300,6 +251,22 @@ mod tests {
         );
 
         assert_eq!(parse_v1_header(text), Ok((&b"Hi!"[..], expected)));
+
+        let text =
+            "PROXY TCP6 ::1 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\nHi!".as_bytes();
+        let expected = Header::version_1(
+            (
+                [0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1],
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                ],
+                65535,
+                65535,
+            )
+                .into(),
+        );
+
+        assert_eq!(parse_v1_header(text), Ok((&b"Hi!"[..], expected)));
     }
 
     #[test]
@@ -358,7 +325,19 @@ mod tests {
         let text =
             "PROXY TCP6 :: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
 
-        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
+        let expected = Header::version_1(
+            (
+                [0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0],
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                ],
+                65535,
+                65535,
+            )
+                .into(),
+        );
+
+        assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
     }
 
     #[test]
@@ -366,7 +345,19 @@ mod tests {
         let text =
             "PROXY TCP6 ffff:: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n".as_bytes();
 
-        assert!(!parse_v1_header(text).unwrap_err().is_incomplete());
+        let expected = Header::version_1(
+            (
+                [0xFFFF, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0],
+                [
+                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                ],
+                65535,
+                65535,
+            )
+                .into(),
+        );
+
+        assert_eq!(parse_v1_header(text), Ok((&[][..], expected)));
     }
 
     #[test]
