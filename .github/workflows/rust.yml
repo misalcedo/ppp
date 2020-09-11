@@ -76,6 +76,4 @@ jobs:
           for file in target/debug/$BINARY_NAME-*; do [ -x "${file}" ] || continue; mkdir -p "target/cov/$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done
       - name: Codecov
         if: matrix.build == 'linux'
-        uses: codecov/codecov-action@v1.0.13
-        with:
-          directory: './target/cov/'
+        run: bash <(curl -s https://codecov.io/bash)
