@@ -61,6 +61,7 @@ jobs:
         env:
           RUST_BACKTRACE: 1
       - name: Generate Coverage Report
+        if: matrix.build == 'linux'
         run: |
           wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&	
           tar xzf master.tar.gz &&	
@@ -74,4 +75,5 @@ jobs:
           rm -rf kcov-master &&	
           for file in target/debug/$BINARY_NAME-*; do [ -x "${file}" ] || continue; mkdir -p "target/cov/$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done
       - name: Codecov
+        if: matrix.build == 'linux'
         uses: codecov/codecov-action@v1.0.13
