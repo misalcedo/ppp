@@ -1,7 +1,6 @@
 # ppp
 [![License](https://img.shields.io/badge/License-Apache%202.0-yellowgreen.svg)](https://opensource.org/licenses/Apache-2.0)  
 [![Build Status](https://travis-ci.org/misalcedo/ppp.svg?branch=master)](https://travis-ci.org/misalcedo/ppp)
-[![Build status](https://ci.appveyor.com/api/projects/status/mlr10t4o0l5300nw?svg=true)](https://ci.appveyor.com/project/misalcedo/ppp)
 [![Coverage](https://codecov.io/gh/misalcedo/ppp/branch/master/graph/badge.svg)](https://codecov.io/gh/misalcedo/ppp)
 [![Crates.io Version](https://img.shields.io/crates/v/ppp.svg)](https://crates.io/crates/ppp)
 [![Docs.rs Version](https://docs.rs/ppp/badge.svg)](https://docs.rs/ppp)
