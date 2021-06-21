@@ -18,7 +18,7 @@ codecov = { repository = "misalcedo/ppp" }
 
 
 [dependencies]
-nom = "5"
+nom = "6"
 
 [dev-dependencies]
 criterion = "0.3"
