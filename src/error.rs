@@ -25,8 +25,8 @@ impl ParseError {
 }
 
 /// Create a parse error from a nom error.
-impl<T> From<nom::Err<(T, nom::error::ErrorKind)>> for ParseError {
-    fn from(e: nom::Err<(T, nom::error::ErrorKind)>) -> Self {
+impl<T> From<nom::Err<nom::error::Error<T>>> for ParseError {
+    fn from(e: nom::Err<nom::error::Error<T>>) -> Self {
         match e {
             nom::Err::Incomplete(_) => ParseError::Incomplete,
             _ => ParseError::Failure,
