@@ -1,0 +1,23 @@
+on:
+  push:
+    branches: [ master ]
+    paths: [ 'Cargo.toml' ]
+  workflow_dispatch: {}
+
+name: Release - PPP
+
+jobs:
+  publish:
+    name: Pulish to crates.io
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust
+        run: |
+          rustup update stable --no-self-update
+          rustup default stable
+      - name: Publish
+        run: |
+          cargo login ${{ secrets.CRATES_IO_TOKEN }}
+          cargo publish
