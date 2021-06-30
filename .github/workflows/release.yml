@@ -4,12 +4,11 @@ on:
     paths: [ 'Cargo.toml' ]
   workflow_dispatch: {}
 
-name: Release - PPP
+name: Release
 
 jobs:
   publish:
     name: Pulish to crates.io
-    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
