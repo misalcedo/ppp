@@ -11,12 +11,6 @@ documentation = "https://docs.rs/ppp/1.0.0/ppp/"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[badges]
-travis-ci = { repository = "misalcedo/ppp" }
-appveyor = { repository = "misalcedo/ppp" }
-codecov = { repository = "misalcedo/ppp" }
-
-
 [dependencies]
 nom = "6"
 
