@@ -90,7 +90,7 @@ fn parse_unspecified(address_length: u16) -> impl Fn(&[u8]) -> IResult<&[u8], Ad
 
 /// Parses multiple Type-Length-Value records.
 fn parse_tlvs(input: &[u8]) -> IResult<&[u8], Vec<Tlv>> {
-    fold_many0(parse_tlv, Vec::new(), |mut acc: Vec<Tlv>, tlv| {
+    fold_many0(parse_tlv, Vec::new, |mut acc: Vec<Tlv>, tlv| {
         acc.push(tlv);
         acc
     })(input)
@@ -116,7 +116,7 @@ fn parse_unix_address(input: &[u8]) -> IResult<&[u8], [u32; 27]> {
             27,
             27,
             be_u32,
-            ([0; 27], 0),
+            || ([0; 27], 0),
             |acc: ([u32; 27], usize), item| {
                 let (mut array, index) = acc;
 
