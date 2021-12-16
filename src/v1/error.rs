@@ -19,9 +19,9 @@ pub enum ParseError<'a> {
     #[error("Header contains invalid IP address for the destination.")]
     InvalidDestinationAddress(#[source] std::net::AddrParseError),
     #[error("Header contains invalid TCP port for the source.")]
-    InvalidSourcePort(#[source] std::num::ParseIntError),
+    InvalidSourcePort(#[source] Option<std::num::ParseIntError>),
     #[error("Header contains invalid TCP port for the destination.")]
-    InvalidDestinationPort(#[source] std::num::ParseIntError),
+    InvalidDestinationPort(#[source] Option<std::num::ParseIntError>),
 }
 
 #[derive(thiserror::Error, Debug, PartialEq)]

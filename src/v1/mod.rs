@@ -11,6 +11,7 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
 use std::str::from_utf8;
 
 const MAX_LENGTH: usize = 107;
+const ZERO: &str = "0";
 const PROTOCOL_PREFIX: &str = "PROXY";
 const SEPARATOR: &str = " ";
 const TCP4: &str = "TCP4";
@@ -51,12 +52,22 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                 let destination_address = destination_address
                     .parse::<Ipv4Addr>()
                     .map_err(ParseError::InvalidDestinationAddress)?;
+
+                if source_port.starts_with(ZERO) && source_port != ZERO {
+                    return Err(ParseError::InvalidSourcePort(None));
+                }
+
                 let source_port = source_port
                     .parse::<u16>()
-                    .map_err(ParseError::InvalidSourcePort)?;
+                    .map_err(|e| ParseError::InvalidSourcePort(Some(e)))?;
+
+                if destination_port.starts_with(ZERO) && destination_port != ZERO {
+                    return Err(ParseError::InvalidDestinationPort(None));
+                }
+
                 let destination_port = destination_port
                     .parse::<u16>()
-                    .map_err(ParseError::InvalidDestinationPort)?;
+                    .map_err(|e| ParseError::InvalidDestinationPort(Some(e)))?;
 
                 Addresses::Tcp4(Tcp4 {
                     source: SocketAddrV4::new(source_address, source_port),
@@ -75,12 +86,22 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                 let destination_address = destination_address
                     .parse::<Ipv6Addr>()
                     .map_err(ParseError::InvalidDestinationAddress)?;
+
+                if source_port.starts_with(ZERO) && source_port != ZERO {
+                    return Err(ParseError::InvalidSourcePort(None));
+                }
+
                 let source_port = source_port
                     .parse::<u16>()
-                    .map_err(ParseError::InvalidSourcePort)?;
+                    .map_err(|e| ParseError::InvalidSourcePort(Some(e)))?;
+
+                if destination_port.starts_with(ZERO) && destination_port != ZERO {
+                    return Err(ParseError::InvalidDestinationPort(None));
+                }
+
                 let destination_port = destination_port
                     .parse::<u16>()
-                    .map_err(ParseError::InvalidDestinationPort)?;
+                    .map_err(|e| ParseError::InvalidDestinationPort(Some(e)))?;
 
                 Addresses::Tcp6(Tcp6 {
                     source: SocketAddrV6::new(source_address, source_port, 0, 0),
@@ -299,14 +320,20 @@ mod tests {
     fn parse_leading_zeroes_in_source_port() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 05535 65535\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidSourcePort(None))
+        );
     }
 
     #[test]
     fn parse_leading_zeroes_in_destination_port() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 05535\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidDestinationPort(None))
+        );
     }
 
     #[test]
@@ -381,9 +408,9 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidSourcePort(
+            Err(ParseError::InvalidSourcePort(Some(
                 "".parse::<u16>().unwrap_err()
-            ))
+            )))
         );
     }
 
@@ -393,9 +420,9 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidDestinationPort(
+            Err(ParseError::InvalidDestinationPort(Some(
                 "".parse::<u16>().unwrap_err()
-            ))
+            )))
         );
     }
 
