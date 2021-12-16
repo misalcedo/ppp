@@ -1,5 +1,5 @@
 pub struct Header<'a> {
-    header: &'a [u8]
+    header: &'a [u8],
 }
 
 pub enum Version {
@@ -15,7 +15,7 @@ pub enum AddressFamily {
     Unspecified = 0,
     IPv4,
     IPv6,
-    Unix
+    Unix,
 }
 
 pub enum Protocol {
@@ -25,7 +25,7 @@ pub enum Protocol {
 }
 
 pub struct TypeLengthValue<'a> {
-    tlv: &'a [u8]
+    tlv: &'a [u8],
 }
 
 pub enum Type {
@@ -40,11 +40,11 @@ pub enum Type {
     SSLCipher,
     SSLSignatureAlgorithm,
     SSLKeyAlgorithm,
-    NetworkNamespace = 30
+    NetworkNamespace = 30,
 }
 
 pub enum ClientType {
     SSL = 1,
     CertificateConnection,
-    CertificateSession
+    CertificateSession,
 }
