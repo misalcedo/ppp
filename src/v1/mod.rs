@@ -88,15 +88,14 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                 })
             }
             Some(UNKNOWN) => {
+                let start =
+                    PROTOCOL_PREFIX.len() + SEPARATOR.len() + UNKNOWN.len() + SEPARATOR.len();
                 let rest = match iterator.next() {
-                    Some(_) => Some(
-                        &header[(PROTOCOL_PREFIX.len()
-                            + SEPARATOR.len()
-                            + UNKNOWN.len()
-                            + SEPARATOR.len())..],
-                    ),
+                    Some(_) => Some(&header[start..]),
                     None => None,
                 };
+
+                while iterator.next().is_some() {}
 
                 Addresses::Unknown(Unknown { rest })
             }
