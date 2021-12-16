@@ -9,14 +9,6 @@ pub use borrowed::{Addresses, Header, Tcp, Unknown};
 pub use error::{BinaryParseError, ParseError};
 use std::str::from_utf8;
 
-impl<'a> TryFrom<&'a [u8]> for Header<'a> {
-    type Error = BinaryParseError<'a>;
-
-    fn try_from(header: &'a [u8]) -> Result<Self, Self::Error> {
-        Header::try_from(from_utf8(header)?).map_err(BinaryParseError::Parse)
-    }
-}
-
 const MAX_LENGTH: usize = 107;
 const PROTOCOL_PREFIX: &str = "PROXY";
 const SEPARATOR: &str = " ";
@@ -92,6 +84,18 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
     }
 }
 
+impl<'a> TryFrom<&'a [u8]> for Header<'a> {
+    type Error = BinaryParseError<'a>;
+
+    fn try_from(input: &'a [u8]) -> Result<Self, Self::Error> {
+        let end = input.windows(PROTOCOL_SUFFIX.len()).position(|window| window == PROTOCOL_SUFFIX.as_bytes()).ok_or(ParseError::MissingNewLine).map_err(BinaryParseError::Parse)?;
+        let length = end + PROTOCOL_SUFFIX.len();
+        let header = from_utf8(&input[..length])?;
+
+        Header::try_from(header).map_err(BinaryParseError::Parse)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,14 +124,14 @@ mod tests {
     fn parse_partial() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535";
 
-        assert_eq!(Header::try_from(text).unwrap_err(), MISSING_NEWLINE);
+        assert_eq!(Header::try_from(text).unwrap_err(), ParseError::MissingNewLine);
     }
 
     #[test]
     fn parse_invalid() {
         let text = "PROXY \r\n";
 
-        assert_eq!(Header::try_from(text).unwrap_err(), MISSING_PROTOCOL);
+        assert_eq!(Header::try_from(text).unwrap_err(), ParseError::MissingProtocol);
     }
 
     #[test]

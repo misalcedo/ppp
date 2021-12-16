@@ -1,15 +1,12 @@
-use std::convert::TryFrom;
-use std::str::from_utf8;
-
 #[derive(Debug, PartialEq)]
 pub struct Header<'a> {
-    header: &'a str,
-    addresses: Addresses<'a>,
+    pub header: &'a str,
+    pub addresses: Addresses<'a>,
 }
 
 impl<'a> Header<'a> {
     #[cfg(test)]
-    fn new(header: &'a str, addresses: Addresses<'a>) -> Self {
+    pub fn new(header: &'a str, addresses: Addresses<'a>) -> Self {
         Header { header, addresses }
     }
 }
@@ -23,7 +20,7 @@ pub enum Addresses<'a> {
 
 impl<'a> Addresses<'a> {
     #[cfg(test)]
-    fn new_tcp4(
+    pub fn new_tcp4(
         source_address: &'a str,
         destination_address: &'a str,
         source_port: &'a str,
@@ -38,7 +35,7 @@ impl<'a> Addresses<'a> {
     }
 
     #[cfg(test)]
-    fn new_tcp6(
+    pub fn new_tcp6(
         source_address: &'a str,
         destination_address: &'a str,
         source_port: &'a str,
@@ -53,7 +50,7 @@ impl<'a> Addresses<'a> {
     }
 
     #[cfg(test)]
-    fn new_unknown(rest: &'a str) -> Self {
+    pub fn new_unknown(rest: &'a str) -> Self {
         Addresses::Unknown(Unknown { rest: Some(rest) })
     }
 }
@@ -66,13 +63,13 @@ impl<'a> Default for Addresses<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct Tcp<'a> {
-    source_address: &'a str,
-    source_port: &'a str,
-    destination_address: &'a str,
-    destination_port: &'a str,
+    pub source_address: &'a str,
+    pub source_port: &'a str,
+    pub destination_address: &'a str,
+    pub destination_port: &'a str,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Unknown<'a> {
-    rest: Option<&'a str>,
+    pub rest: Option<&'a str>,
 }

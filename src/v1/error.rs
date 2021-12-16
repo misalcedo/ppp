@@ -1,4 +1,4 @@
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ParseError<'a> {
     #[error("Header does not start with the string 'PROXY'.")]
     MissingPrefix,
@@ -15,7 +15,7 @@ pub enum ParseError<'a> {
 
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq)]
 pub enum BinaryParseError<'a> {
     #[error("Encountered an error in parsing the header.")]
     Parse(ParseError<'a>),
