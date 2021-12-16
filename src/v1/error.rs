@@ -12,7 +12,6 @@ pub enum ParseError<'a> {
     MissingNewLine,
     #[error("Header does not fit within the expected buffer size of 107 bytes (plus 1 byte for null-terminated strings).")]
     HeaderTooLong,
-
 }
 
 #[derive(thiserror::Error, Debug, PartialEq)]
@@ -20,5 +19,5 @@ pub enum BinaryParseError<'a> {
     #[error("Encountered an error in parsing the header.")]
     Parse(ParseError<'a>),
     #[error("Header is not valid UTF-8.")]
-    InvalidUtf8(#[from] std::str::Utf8Error)
+    InvalidUtf8(#[from] std::str::Utf8Error),
 }

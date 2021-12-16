@@ -1,5 +1,5 @@
 //! Version 1 of the HAProxy protocol (text version).
-//! 
+//!
 //! See <haproxy.org/download/1.8/doc/proxy-protocol.txt>
 
 mod borrowed;
@@ -21,11 +21,13 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
     type Error = ParseError<'a>;
 
     fn try_from(input: &'a str) -> Result<Self, Self::Error> {
-        let end = input.find(PROTOCOL_SUFFIX).ok_or(ParseError::MissingNewLine)?;
+        let end = input
+            .find(PROTOCOL_SUFFIX)
+            .ok_or(ParseError::MissingNewLine)?;
         let length = end + PROTOCOL_SUFFIX.len();
 
         if length > MAX_LENGTH {
-            return Err(ParseError::HeaderTooLong)
+            return Err(ParseError::HeaderTooLong);
         }
 
         let header = &input[..end];
@@ -65,13 +67,16 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
             }
             Some(UNKNOWN) => {
                 let rest = match iterator.next() {
-                    Some(_) => Some(&header[(PROTOCOL_PREFIX.len() + SEPARATOR.len() + UNKNOWN.len() + SEPARATOR.len())..]),
-                    None => None
+                    Some(_) => Some(
+                        &header[(PROTOCOL_PREFIX.len()
+                            + SEPARATOR.len()
+                            + UNKNOWN.len()
+                            + SEPARATOR.len())..],
+                    ),
+                    None => None,
                 };
 
-                Addresses::Unknown(Unknown {
-                    rest,
-                })
+                Addresses::Unknown(Unknown { rest })
             }
             Some(protocol) => return Err(ParseError::InvalidProtocol(protocol)),
             None => return Err(ParseError::MissingProtocol),
@@ -88,7 +93,11 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
     type Error = BinaryParseError<'a>;
 
     fn try_from(input: &'a [u8]) -> Result<Self, Self::Error> {
-        let end = input.windows(PROTOCOL_SUFFIX.len()).position(|window| window == PROTOCOL_SUFFIX.as_bytes()).ok_or(ParseError::MissingNewLine).map_err(BinaryParseError::Parse)?;
+        let end = input
+            .windows(PROTOCOL_SUFFIX.len())
+            .position(|window| window == PROTOCOL_SUFFIX.as_bytes())
+            .ok_or(ParseError::MissingNewLine)
+            .map_err(BinaryParseError::Parse)?;
         let length = end + PROTOCOL_SUFFIX.len();
         let header = from_utf8(&input[..length])?;
 
@@ -115,7 +124,10 @@ mod tests {
         let ip = "255.255.255.255";
         let port = "65535";
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\nFoobar";
-        let expected = Header::new("PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n", Addresses::new_tcp4(ip, ip, port, port));
+        let expected = Header::new(
+            "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n",
+            Addresses::new_tcp4(ip, ip, port, port),
+        );
 
         assert_eq!(Header::try_from(text), Ok(expected));
     }
@@ -124,14 +136,20 @@ mod tests {
     fn parse_partial() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535";
 
-        assert_eq!(Header::try_from(text).unwrap_err(), ParseError::MissingNewLine);
+        assert_eq!(
+            Header::try_from(text).unwrap_err(),
+            ParseError::MissingNewLine
+        );
     }
 
     #[test]
     fn parse_invalid() {
         let text = "PROXY \r\n";
 
-        assert_eq!(Header::try_from(text).unwrap_err(), ParseError::MissingProtocol);
+        assert_eq!(
+            Header::try_from(text).unwrap_err(),
+            ParseError::MissingProtocol
+        );
     }
 
     #[test]
