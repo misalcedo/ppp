@@ -10,6 +10,8 @@ pub enum ParseError<'a> {
     EmptyAddresses,
     #[error("Header does not end with the string '\\r\\n'.")]
     MissingNewLine,
+    #[error("Header contains additional characters after the destination port, but before the '\\r\\n'.")]
+    UnexpectedCharacters,
     #[error("Header does not fit within the expected buffer size of 107 bytes (plus 1 byte for null-terminated strings).")]
     HeaderTooLong,
     #[error("Header contains invalid IP address for the source.")]

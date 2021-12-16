@@ -45,23 +45,22 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                 let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
                 let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
 
+                let source_address = source_address
+                    .parse::<Ipv4Addr>()
+                    .map_err(ParseError::InvalidSourceAddress)?;
+                let destination_address = destination_address
+                    .parse::<Ipv4Addr>()
+                    .map_err(ParseError::InvalidDestinationAddress)?;
+                let source_port = source_port
+                    .parse::<u16>()
+                    .map_err(ParseError::InvalidSourcePort)?;
+                let destination_port = destination_port
+                    .parse::<u16>()
+                    .map_err(ParseError::InvalidDestinationPort)?;
+
                 Addresses::Tcp4(Tcp4 {
-                    source: SocketAddrV4::new(
-                        source_address
-                            .parse::<Ipv4Addr>()
-                            .map_err(ParseError::InvalidSourceAddress)?,
-                        source_port
-                            .parse::<u16>()
-                            .map_err(ParseError::InvalidSourcePort)?,
-                    ),
-                    destination: SocketAddrV4::new(
-                        destination_address
-                            .parse::<Ipv4Addr>()
-                            .map_err(ParseError::InvalidDestinationAddress)?,
-                        destination_port
-                            .parse::<u16>()
-                            .map_err(ParseError::InvalidDestinationPort)?,
-                    ),
+                    source: SocketAddrV4::new(source_address, source_port),
+                    destination: SocketAddrV4::new(destination_address, destination_port),
                 })
             }
             Some(TCP6) => {
@@ -70,27 +69,22 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                 let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
                 let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
 
+                let source_address = source_address
+                    .parse::<Ipv6Addr>()
+                    .map_err(ParseError::InvalidSourceAddress)?;
+                let destination_address = destination_address
+                    .parse::<Ipv6Addr>()
+                    .map_err(ParseError::InvalidDestinationAddress)?;
+                let source_port = source_port
+                    .parse::<u16>()
+                    .map_err(ParseError::InvalidSourcePort)?;
+                let destination_port = destination_port
+                    .parse::<u16>()
+                    .map_err(ParseError::InvalidDestinationPort)?;
+
                 Addresses::Tcp6(Tcp6 {
-                    source: SocketAddrV6::new(
-                        source_address
-                            .parse::<Ipv6Addr>()
-                            .map_err(ParseError::InvalidSourceAddress)?,
-                        source_port
-                            .parse::<u16>()
-                            .map_err(ParseError::InvalidSourcePort)?,
-                        0,
-                        0,
-                    ),
-                    destination: SocketAddrV6::new(
-                        destination_address
-                            .parse::<Ipv6Addr>()
-                            .map_err(ParseError::InvalidDestinationAddress)?,
-                        destination_port
-                            .parse::<u16>()
-                            .map_err(ParseError::InvalidDestinationPort)?,
-                        0,
-                        0,
-                    ),
+                    source: SocketAddrV6::new(source_address, source_port, 0, 0),
+                    destination: SocketAddrV6::new(destination_address, destination_port, 0, 0),
                 })
             }
             Some(UNKNOWN) => {
@@ -106,9 +100,15 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
 
                 Addresses::Unknown(Unknown { rest })
             }
-            Some(protocol) if !protocol.is_empty() => return Err(ParseError::InvalidProtocol(protocol)),
+            Some(protocol) if !protocol.is_empty() => {
+                return Err(ParseError::InvalidProtocol(protocol))
+            }
             _ => return Err(ParseError::MissingProtocol),
         };
+
+        if iterator.peek().is_some() {
+            return Err(ParseError::UnexpectedCharacters);
+        }
 
         Ok(Header {
             header: &input[..length],
@@ -349,41 +349,64 @@ mod tests {
     fn parse_more_than_one_space() {
         let text = "PROXY  TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(Header::try_from(text), Err(ParseError::MissingProtocol));
     }
 
     #[test]
     fn parse_more_than_one_space_source_address() {
         let text = "PROXY TCP4  255.255.255.255 255.255.255.255 65535 65535\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidSourceAddress(
+                "".parse::<Ipv4Addr>().unwrap_err()
+            ))
+        );
     }
 
     #[test]
     fn parse_more_than_one_space_destination_address() {
         let text = "PROXY TCP4 255.255.255.255  255.255.255.255 65535 65535\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidDestinationAddress(
+                "".parse::<Ipv4Addr>().unwrap_err()
+            ))
+        );
     }
 
     #[test]
     fn parse_more_than_one_space_source_port() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255  65535 65535\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidSourcePort(
+                "".parse::<u16>().unwrap_err()
+            ))
+        );
     }
 
     #[test]
     fn parse_more_than_one_space_destination_port() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535  65535\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidDestinationPort(
+                "".parse::<u16>().unwrap_err()
+            ))
+        );
     }
 
     #[test]
     fn parse_more_than_one_space_end() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535 \r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::UnexpectedCharacters)
+        );
     }
 }
