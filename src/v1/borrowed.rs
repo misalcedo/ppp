@@ -1,3 +1,5 @@
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
+
 #[derive(Debug, PartialEq)]
 pub struct Header<'a> {
     pub header: &'a str,
@@ -13,43 +15,36 @@ impl<'a> Header<'a> {
 
 #[derive(Debug, PartialEq)]
 pub enum Addresses<'a> {
-    Tcp4(Tcp<'a>),
-    Tcp6(Tcp<'a>),
+    Tcp4(Tcp4),
+    Tcp6(Tcp6),
     Unknown(Unknown<'a>),
 }
 
 impl<'a> Addresses<'a> {
-    #[cfg(test)]
     pub fn new_tcp4(
-        source_address: &'a str,
-        destination_address: &'a str,
-        source_port: &'a str,
-        destination_port: &'a str,
+        source_address: Ipv4Addr,
+        destination_address: Ipv4Addr,
+        source_port: u16,
+        destination_port: u16,
     ) -> Self {
-        Addresses::Tcp4(Tcp {
-            source_address,
-            source_port,
-            destination_address,
-            destination_port,
+        Addresses::Tcp4(Tcp4 {
+            source: SocketAddrV4::new(source_address, source_port),
+            destination: SocketAddrV4::new(destination_address, destination_port),
         })
     }
 
-    #[cfg(test)]
     pub fn new_tcp6(
-        source_address: &'a str,
-        destination_address: &'a str,
-        source_port: &'a str,
-        destination_port: &'a str,
+        source_address: Ipv6Addr,
+        destination_address: Ipv6Addr,
+        source_port: u16,
+        destination_port: u16,
     ) -> Self {
-        Addresses::Tcp6(Tcp {
-            source_address,
-            source_port,
-            destination_address,
-            destination_port,
+        Addresses::Tcp6(Tcp6 {
+            source: SocketAddrV6::new(source_address, source_port, 0, 0),
+            destination: SocketAddrV6::new(destination_address, destination_port, 0, 0),
         })
     }
 
-    #[cfg(test)]
     pub fn new_unknown(rest: &'a str) -> Self {
         Addresses::Unknown(Unknown { rest: Some(rest) })
     }
@@ -62,11 +57,15 @@ impl<'a> Default for Addresses<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Tcp<'a> {
-    pub source_address: &'a str,
-    pub source_port: &'a str,
-    pub destination_address: &'a str,
-    pub destination_port: &'a str,
+pub struct Tcp4 {
+    pub source: SocketAddrV4,
+    pub destination: SocketAddrV4,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Tcp6 {
+    pub source: SocketAddrV6,
+    pub destination: SocketAddrV6,
 }
 
 #[derive(Debug, PartialEq)]

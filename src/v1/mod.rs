@@ -5,8 +5,9 @@
 mod borrowed;
 mod error;
 
-pub use borrowed::{Addresses, Header, Tcp, Unknown};
+pub use borrowed::{Addresses, Header, Tcp4, Tcp6, Unknown};
 pub use error::{BinaryParseError, ParseError};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
 use std::str::from_utf8;
 
 const MAX_LENGTH: usize = 107;
@@ -33,7 +34,6 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
         let header = &input[..end];
         let mut iterator = header.split(SEPARATOR).peekable();
 
-        println!("Header: {:?}", &header[..end]);
         if Some(PROTOCOL_PREFIX) != iterator.next() {
             return Err(ParseError::MissingPrefix);
         }
@@ -45,11 +45,23 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                 let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
                 let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
 
-                Addresses::Tcp4(Tcp {
-                    source_address,
-                    source_port,
-                    destination_address,
-                    destination_port,
+                Addresses::Tcp4(Tcp4 {
+                    source: SocketAddrV4::new(
+                        source_address
+                            .parse::<Ipv4Addr>()
+                            .map_err(ParseError::InvalidSourceAddress)?,
+                        source_port
+                            .parse::<u16>()
+                            .map_err(ParseError::InvalidSourcePort)?,
+                    ),
+                    destination: SocketAddrV4::new(
+                        destination_address
+                            .parse::<Ipv4Addr>()
+                            .map_err(ParseError::InvalidDestinationAddress)?,
+                        destination_port
+                            .parse::<u16>()
+                            .map_err(ParseError::InvalidDestinationPort)?,
+                    ),
                 })
             }
             Some(TCP6) => {
@@ -58,11 +70,27 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                 let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
                 let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
 
-                Addresses::Tcp6(Tcp {
-                    source_address,
-                    source_port,
-                    destination_address,
-                    destination_port,
+                Addresses::Tcp6(Tcp6 {
+                    source: SocketAddrV6::new(
+                        source_address
+                            .parse::<Ipv6Addr>()
+                            .map_err(ParseError::InvalidSourceAddress)?,
+                        source_port
+                            .parse::<u16>()
+                            .map_err(ParseError::InvalidSourcePort)?,
+                        0,
+                        0,
+                    ),
+                    destination: SocketAddrV6::new(
+                        destination_address
+                            .parse::<Ipv6Addr>()
+                            .map_err(ParseError::InvalidDestinationAddress)?,
+                        destination_port
+                            .parse::<u16>()
+                            .map_err(ParseError::InvalidDestinationPort)?,
+                        0,
+                        0,
+                    ),
                 })
             }
             Some(UNKNOWN) => {
@@ -111,8 +139,8 @@ mod tests {
 
     #[test]
     fn exact_tcp4() {
-        let ip = "255.255.255.255";
-        let port = "65535";
+        let ip = "255.255.255.255".parse().unwrap();
+        let port = 65535;
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n";
         let expected = Header::new(text, Addresses::new_tcp4(ip, ip, port, port));
 
@@ -121,8 +149,8 @@ mod tests {
 
     #[test]
     fn valid_tcp4() {
-        let ip = "255.255.255.255";
-        let port = "65535";
+        let ip = "255.255.255.255".parse().unwrap();
+        let port = 65535;
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\nFoobar";
         let expected = Header::new(
             "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n",
@@ -178,14 +206,14 @@ mod tests {
 
     #[test]
     fn valid_tcp6() {
-        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff";
-        let port = "65535";
+        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let port = 65535;
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\nHi!";
         let expected = Header::new("PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n", Addresses::new_tcp6(ip, ip, port, port));
 
         assert_eq!(Header::try_from(text), Ok(expected));
 
-        let short_ip = "::1";
+        let short_ip = "::1".parse().unwrap();
         let text = "PROXY TCP6 ::1 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\nHi!";
         let expected = Header::new(
             "PROXY TCP6 ::1 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n",
@@ -211,9 +239,9 @@ mod tests {
 
     #[test]
     fn parse_tcp6_shortened_connection() {
-        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff";
-        let short_ip = "ffff::ffff";
-        let port = "65535";
+        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let short_ip = "ffff::ffff".parse().unwrap();
+        let port = 65535;
         let text = "PROXY TCP6 ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
         let expected = Header::new(text, Addresses::new_tcp6(short_ip, ip, port, port));
 
@@ -222,9 +250,9 @@ mod tests {
 
     #[test]
     fn parse_tcp6_single_zero() {
-        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff";
-        let short_ip = "ffff:ffff:ffff:ffff::ffff:ffff:ffff";
-        let port = "65535";
+        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let short_ip = "ffff:ffff:ffff:ffff::ffff:ffff:ffff".parse().unwrap();
+        let port = 65535;
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff::ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
         let expected = Header::new(text, Addresses::new_tcp6(short_ip, ip, port, port));
 
@@ -233,9 +261,9 @@ mod tests {
 
     #[test]
     fn parse_tcp6_wildcard() {
-        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff";
-        let short_ip = "::";
-        let port = "65535";
+        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let short_ip = "::".parse().unwrap();
+        let port = 65535;
         let text = "PROXY TCP6 :: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
         let expected = Header::new(text, Addresses::new_tcp6(short_ip, ip, port, port));
 
@@ -244,9 +272,9 @@ mod tests {
 
     #[test]
     fn parse_tcp6_implied() {
-        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff";
-        let short_ip = "ffff::";
-        let port = "65535";
+        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let short_ip = "ffff::".parse().unwrap();
+        let port = 65535;
         let text = "PROXY TCP6 ffff:: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
         let expected = Header::new(text, Addresses::new_tcp6(short_ip, ip, port, port));
 
