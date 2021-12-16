@@ -106,8 +106,8 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
 
                 Addresses::Unknown(Unknown { rest })
             }
-            Some(protocol) => return Err(ParseError::InvalidProtocol(protocol)),
-            None => return Err(ParseError::MissingProtocol),
+            Some(protocol) if !protocol.is_empty() => return Err(ParseError::InvalidProtocol(protocol)),
+            _ => return Err(ParseError::MissingProtocol),
         };
 
         Ok(Header {
