@@ -1,80 +1,20 @@
-use std::convert::TryFrom;
+//! Version 1 of the HAProxy protocol (text version).
+//! 
+//! See <haproxy.org/download/1.8/doc/proxy-protocol.txt>
+
+mod borrowed;
+mod error;
+
+pub use borrowed::{Addresses, Header, Tcp, Unknown};
+pub use error::{BinaryParseError, ParseError};
 use std::str::from_utf8;
 
-#[derive(Debug, PartialEq)]
-pub struct Header<'a> {
-    header: &'a str,
-    addresses: Addresses<'a>,
-}
+impl<'a> TryFrom<&'a [u8]> for Header<'a> {
+    type Error = BinaryParseError<'a>;
 
-impl<'a> Header<'a> {
-    #[cfg(test)]
-    fn new(header: &'a str, addresses: Addresses<'a>) -> Self {
-        Header { header, addresses }
+    fn try_from(header: &'a [u8]) -> Result<Self, Self::Error> {
+        Header::try_from(from_utf8(header)?).map_err(BinaryParseError::Parse)
     }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Addresses<'a> {
-    Tcp4(Tcp<'a>),
-    Tcp6(Tcp<'a>),
-    Unknown(Unknown<'a>),
-}
-
-impl<'a> Addresses<'a> {
-    #[cfg(test)]
-    fn new_tcp4(
-        source_address: &'a str,
-        destination_address: &'a str,
-        source_port: &'a str,
-        destination_port: &'a str,
-    ) -> Self {
-        Addresses::Tcp4(Tcp {
-            source_address,
-            source_port,
-            destination_address,
-            destination_port,
-        })
-    }
-
-    #[cfg(test)]
-    fn new_tcp6(
-        source_address: &'a str,
-        destination_address: &'a str,
-        source_port: &'a str,
-        destination_port: &'a str,
-    ) -> Self {
-        Addresses::Tcp6(Tcp {
-            source_address,
-            source_port,
-            destination_address,
-            destination_port,
-        })
-    }
-
-    #[cfg(test)]
-    fn new_unknown(rest: &'a str) -> Self {
-        Addresses::Unknown(Unknown { rest: Some(rest) })
-    }
-}
-
-impl<'a> Default for Addresses<'a> {
-    fn default() -> Self {
-        Addresses::Unknown(Unknown { rest: None })
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Tcp<'a> {
-    source_address: &'a str,
-    source_port: &'a str,
-    destination_address: &'a str,
-    destination_port: &'a str,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Unknown<'a> {
-    rest: Option<&'a str>,
 }
 
 const MAX_LENGTH: usize = 107;
@@ -82,42 +22,34 @@ const PROTOCOL_PREFIX: &str = "PROXY";
 const SEPARATOR: &str = " ";
 const TCP4: &str = "TCP4";
 const TCP6: &str = "TCP6";
-const UNKNOWN_SHORT: &str = "UNKNOWN\r\n";
 const UNKNOWN: &str = "UNKNOWN";
 const PROTOCOL_SUFFIX: &str = "\r\n";
 
-const INVALID_PROTOCOL: &str = "Header has an invalid protocol.";
-const MISSING_PROTOCOL: &str = "Header missing protocol.";
-const EMPTY_ADDRESS: &str = "Header missing an expected part of the address.";
-const MISSING_NEWLINE: &str = "Header does not end with the string '\\r\\n'.";
-
-impl<'a> TryFrom<&'a [u8]> for Header<'a> {
-    type Error = &'static str;
-
-    fn try_from(header: &'a [u8]) -> Result<Self, Self::Error> {
-        Header::try_from(from_utf8(header).map_err(|_| "Header is not valid UTF-8.")?)
-    }
-}
-
 impl<'a> TryFrom<&'a str> for Header<'a> {
-    type Error = &'static str;
+    type Error = ParseError<'a>;
 
     fn try_from(input: &'a str) -> Result<Self, Self::Error> {
-        let end = input.find(PROTOCOL_SUFFIX).ok_or(MISSING_NEWLINE)?;
+        let end = input.find(PROTOCOL_SUFFIX).ok_or(ParseError::MissingNewLine)?;
+        let length = end + PROTOCOL_SUFFIX.len();
+
+        if length > MAX_LENGTH {
+            return Err(ParseError::HeaderTooLong)
+        }
+
         let header = &input[..end];
         let mut iterator = header.split(SEPARATOR).peekable();
 
         println!("Header: {:?}", &header[..end]);
         if Some(PROTOCOL_PREFIX) != iterator.next() {
-            return Err("Header does not start with the string 'PROXY'.");
+            return Err(ParseError::MissingPrefix);
         }
 
         let addresses = match iterator.next() {
             Some(TCP4) => {
-                let source_address = iterator.next().ok_or(EMPTY_ADDRESS)?;
-                let destination_address = iterator.next().ok_or(EMPTY_ADDRESS)?;
-                let source_port = iterator.next().ok_or(EMPTY_ADDRESS)?;
-                let destination_port = iterator.next().ok_or(EMPTY_ADDRESS)?;
+                let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+                let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+                let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+                let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
 
                 Addresses::Tcp4(Tcp {
                     source_address,
@@ -127,10 +59,10 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                 })
             }
             Some(TCP6) => {
-                let source_address = iterator.next().ok_or(EMPTY_ADDRESS)?;
-                let destination_address = iterator.next().ok_or(EMPTY_ADDRESS)?;
-                let source_port = iterator.next().ok_or(EMPTY_ADDRESS)?;
-                let destination_port = iterator.next().ok_or(EMPTY_ADDRESS)?;
+                let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+                let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+                let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+                let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
 
                 Addresses::Tcp6(Tcp {
                     source_address,
@@ -149,12 +81,12 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                     rest,
                 })
             }
-            Some(_) => return Err(INVALID_PROTOCOL),
-            None => return Err(MISSING_PROTOCOL),
+            Some(protocol) => return Err(ParseError::InvalidProtocol(protocol)),
+            None => return Err(ParseError::MissingProtocol),
         };
 
         Ok(Header {
-            header: &input[..end + PROTOCOL_SUFFIX.len()],
+            header: &input[..length],
             addresses,
         })
     }

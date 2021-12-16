@@ -20,6 +20,8 @@ pub mod model;
 /// The error type used by the parsers.
 pub mod error;
 
+pub mod v1;
+
 /// Parses a version 1 header of HAProxy's proxy protocol.
 /// Supports TCP with IPv4 and IPv6 addresses, as well as UNKNOWN address information.
 ///

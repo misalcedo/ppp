@@ -1,6 +1,3 @@
-mod borrowed;
-mod owned;
-
 use std::boxed::Box;
 use std::slice::Iter;
 

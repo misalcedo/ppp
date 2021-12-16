@@ -13,6 +13,7 @@ documentation = "https://docs.rs/ppp/1.0.0/ppp/"
 
 [dependencies]
 nom = "7"
+thiserror = "1"
 
 [dev-dependencies]
 criterion = "0.3"
