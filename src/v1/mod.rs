@@ -215,14 +215,24 @@ mod tests {
     fn parse_tcp4_invalid() {
         let text = "PROXY TCP4 255.255.255.255 256.255.255.255 65535 65535\r\n";
 
-        assert_eq!(Header::try_from(text), Err(ParseError::InvalidDestinationAddress(Some("".parse::<Ipv4Addr>().unwrap_err()))));
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidDestinationAddress(Some(
+                "".parse::<Ipv4Addr>().unwrap_err()
+            )))
+        );
     }
 
     #[test]
     fn parse_tcp4_leading_zeroes() {
         let text = "PROXY TCP4 255.0255.255.255 255.255.255.255 65535 65535\r\n";
 
-        assert_eq!(Header::try_from(text), Err(ParseError::InvalidSourceAddress(Some("".parse::<Ipv4Addr>().unwrap_err()))));
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidSourceAddress(Some(
+                "".parse::<Ipv4Addr>().unwrap_err()
+            )))
+        );
     }
 
     #[test]
@@ -258,14 +268,24 @@ mod tests {
     fn parse_tcp6_invalid() {
         let text = "PROXY TCP6 ffff:gggg:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
 
-        assert_eq!(Header::try_from(text), Err(ParseError::InvalidSourceAddress(Some("".parse::<Ipv6Addr>().unwrap_err()))));
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidSourceAddress(Some(
+                "".parse::<Ipv6Addr>().unwrap_err()
+            )))
+        );
     }
 
     #[test]
     fn parse_tcp6_leading_zeroes() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:0ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
 
-        assert_eq!(Header::try_from(text), Err(ParseError::InvalidDestinationAddress(Some("".parse::<Ipv4Addr>().unwrap_err()))));
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidDestinationAddress(Some(
+                "".parse::<Ipv4Addr>().unwrap_err()
+            )))
+        );
     }
 
     #[test]
@@ -316,7 +336,12 @@ mod tests {
     fn parse_tcp6_over_shortened() {
         let text = "PROXY TCP6 ffff::ffff:ffff:ffff:ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
 
-        assert_eq!(Header::try_from(text), Err(ParseError::InvalidSourceAddress(Some("".parse::<Ipv6Addr>().unwrap_err()))));
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidSourceAddress(Some(
+                "".parse::<Ipv6Addr>().unwrap_err()
+            )))
+        );
     }
 
     #[test]
@@ -351,14 +376,24 @@ mod tests {
     fn parse_source_port_too_large() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65536 65535\r\n";
 
-        assert_eq!(Header::try_from(text), Err(ParseError::InvalidSourcePort(Some("65536".parse::<u16>().unwrap_err()))));
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidSourcePort(Some(
+                "65536".parse::<u16>().unwrap_err()
+            )))
+        );
     }
 
     #[test]
     fn parse_destination_port_too_large() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65536\r\n";
 
-        assert_eq!(Header::try_from(text), Err(ParseError::InvalidDestinationPort(Some("65536".parse::<u16>().unwrap_err()))));
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidDestinationPort(Some(
+                "65536".parse::<u16>().unwrap_err()
+            )))
+        );
     }
 
     #[test]
@@ -372,7 +407,10 @@ mod tests {
     fn parse_lowercase_protocol_family() {
         let text = "PROXY tcp4\r\n";
 
-        assert_eq!(Header::try_from(text), Err(ParseError::InvalidProtocol("tcp4")));
+        assert_eq!(
+            Header::try_from(text),
+            Err(ParseError::InvalidProtocol("tcp4"))
+        );
     }
 
     #[test]

@@ -1,3 +1,4 @@
+use std::fmt;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
 
 #[derive(Debug, PartialEq)]
@@ -7,7 +8,6 @@ pub struct Header<'a> {
 }
 
 impl<'a> Header<'a> {
-    #[cfg(test)]
     pub fn new(header: &'a str, addresses: Addresses<'a>) -> Self {
         Header { header, addresses }
     }
@@ -53,6 +53,12 @@ impl<'a> Addresses<'a> {
 impl<'a> Default for Addresses<'a> {
     fn default() -> Self {
         Addresses::Unknown(Unknown { rest: None })
+    }
+}
+
+impl<'a> fmt::Display for Header<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.header)
     }
 }
 
