@@ -2,12 +2,12 @@
 //!
 //! See <haproxy.org/download/1.8/doc/proxy-protocol.txt>
 
-mod model;
 mod error;
+mod model;
 
-use model::{SEPARATOR, PROTOCOL_PREFIX, PROTOCOL_SUFFIX};
-pub use model::{Addresses, Header, Tcp4, Tcp6, TCP4, TCP6, UNKNOWN};
 pub use error::{BinaryParseError, ParseError};
+pub use model::{Addresses, Header, Tcp4, Tcp6, TCP4, TCP6, UNKNOWN};
+use model::{PROTOCOL_PREFIX, PROTOCOL_SUFFIX, SEPARATOR};
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::str::{from_utf8, FromStr};
 
@@ -60,16 +60,15 @@ fn parse_addresses<'a, T: FromStr<Err = AddrParseError>, I: Iterator<Item = &'a 
 
 /// Parses a text PROXY protocol header.
 /// The given string is expected to only include the header.
-fn parse_header<'a>(input: &'a str) -> Result<Header<'a>, ParseError<'a>> {
-    if input.len() > MAX_LENGTH {
+fn parse_header<'a>(header: &'a str) -> Result<Header<'a>, ParseError<'a>> {
+    if header.len() > MAX_LENGTH {
         return Err(ParseError::HeaderTooLong);
     }
 
-    let header = input
+    let mut iterator = header
         .strip_suffix(PROTOCOL_SUFFIX)
-        .ok_or(ParseError::MissingNewLine)?;
-
-    let mut iterator = header.splitn(PARTS, SEPARATOR);
+        .ok_or(ParseError::MissingNewLine)?
+        .splitn(PARTS, SEPARATOR);
 
     if Some(PROTOCOL_PREFIX) != iterator.next() {
         return Err(ParseError::MissingPrefix);
@@ -113,10 +112,7 @@ fn parse_header<'a>(input: &'a str) -> Result<Header<'a>, ParseError<'a>> {
         return Err(ParseError::UnexpectedCharacters);
     }
 
-    Ok(Header {
-        header: input,
-        addresses,
-    })
+    Ok(Header { header, addresses })
 }
 
 impl<'a> TryFrom<&'a str> for Header<'a> {

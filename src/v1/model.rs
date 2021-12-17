@@ -33,7 +33,7 @@ impl<'a> Header<'a> {
         match self.addresses {
             Addresses::Tcp4(..) => TCP4,
             Addresses::Tcp6(..) => TCP6,
-            Addresses::Unknown => UNKNOWN
+            Addresses::Unknown => UNKNOWN,
         }
     }
 
