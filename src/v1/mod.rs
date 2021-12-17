@@ -2,10 +2,10 @@
 //!
 //! See <haproxy.org/download/1.8/doc/proxy-protocol.txt>
 
-mod borrowed;
+mod model;
 mod error;
 
-pub use borrowed::{Addresses, Header, Tcp4, Tcp6, Unknown};
+pub use model::{Addresses, Header, Tcp4, Tcp6, Unknown};
 pub use error::{BinaryParseError, ParseError};
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::str::{from_utf8, FromStr};
