@@ -1,6 +1,6 @@
 //! Version 1 of the HAProxy protocol (text version).
 //!
-//! See <haproxy.org/download/1.8/doc/proxy-protocol.txt>
+//! See <https://haproxy.org/download/1.8/doc/proxy-protocol.txt>
 
 mod error;
 mod model;
@@ -102,9 +102,7 @@ fn parse_header<'a>(header: &'a str) -> Result<Header<'a>, ParseError> {
 
             Addresses::Unknown
         }
-        Some(protocol) if !protocol.is_empty() => {
-            return Err(ParseError::InvalidProtocol)
-        }
+        Some(protocol) if !protocol.is_empty() => return Err(ParseError::InvalidProtocol),
         _ => return Err(ParseError::MissingProtocol),
     };
 
@@ -426,10 +424,7 @@ mod tests {
     fn parse_lowercase_protocol_family() {
         let text = "PROXY tcp4\r\n";
 
-        assert_eq!(
-            Header::try_from(text),
-            Err(ParseError::InvalidProtocol)
-        );
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidProtocol));
     }
 
     #[test]
