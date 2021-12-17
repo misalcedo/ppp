@@ -46,12 +46,23 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                 let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
                 let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
 
-                let source_address = source_address
+                // check if str != addr.to_string(), then throw err
+
+                let source_ip_address = source_address
                     .parse::<Ipv4Addr>()
-                    .map_err(ParseError::InvalidSourceAddress)?;
-                let destination_address = destination_address
+                    .map_err(|e| ParseError::InvalidSourceAddress(Some(e)))?;
+
+                if source_ip_address.to_string().as_str() != source_address {
+                    return Err(ParseError::InvalidSourceAddress(None));
+                }
+
+                let destination_ip_address = destination_address
                     .parse::<Ipv4Addr>()
-                    .map_err(ParseError::InvalidDestinationAddress)?;
+                    .map_err(|e| ParseError::InvalidDestinationAddress(Some(e)))?;
+
+                if destination_ip_address.to_string().as_str() != destination_address {
+                    return Err(ParseError::InvalidDestinationAddress(None));
+                }
 
                 if source_port.starts_with(ZERO) && source_port != ZERO {
                     return Err(ParseError::InvalidSourcePort(None));
@@ -70,8 +81,8 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                     .map_err(|e| ParseError::InvalidDestinationPort(Some(e)))?;
 
                 Addresses::Tcp4(Tcp4 {
-                    source: SocketAddrV4::new(source_address, source_port),
-                    destination: SocketAddrV4::new(destination_address, destination_port),
+                    source: SocketAddrV4::new(source_ip_address, source_port),
+                    destination: SocketAddrV4::new(destination_ip_address, destination_port),
                 })
             }
             Some(TCP6) => {
@@ -82,10 +93,10 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
 
                 let source_address = source_address
                     .parse::<Ipv6Addr>()
-                    .map_err(ParseError::InvalidSourceAddress)?;
+                    .map_err(|e| ParseError::InvalidSourceAddress(Some(e)))?;
                 let destination_address = destination_address
                     .parse::<Ipv6Addr>()
-                    .map_err(ParseError::InvalidDestinationAddress)?;
+                    .map_err(|e| ParseError::InvalidDestinationAddress(Some(e)))?;
 
                 if source_port.starts_with(ZERO) && source_port != ZERO {
                     return Err(ParseError::InvalidSourcePort(None));
@@ -204,14 +215,14 @@ mod tests {
     fn parse_tcp4_invalid() {
         let text = "PROXY TCP4 255.255.255.255 256.255.255.255 65535 65535\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidDestinationAddress(Some("".parse::<Ipv4Addr>().unwrap_err()))));
     }
 
     #[test]
     fn parse_tcp4_leading_zeroes() {
         let text = "PROXY TCP4 255.0255.255.255 255.255.255.255 65535 65535\r\n";
 
-        assert!(!Header::try_from(text).is_err());
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidSourceAddress(Some("".parse::<Ipv4Addr>().unwrap_err()))));
     }
 
     #[test]
@@ -247,14 +258,14 @@ mod tests {
     fn parse_tcp6_invalid() {
         let text = "PROXY TCP6 ffff:gggg:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidSourceAddress(Some("".parse::<Ipv6Addr>().unwrap_err()))));
     }
 
     #[test]
     fn parse_tcp6_leading_zeroes() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:0ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidDestinationAddress(Some("".parse::<Ipv4Addr>().unwrap_err()))));
     }
 
     #[test]
@@ -305,7 +316,7 @@ mod tests {
     fn parse_tcp6_over_shortened() {
         let text = "PROXY TCP6 ffff::ffff:ffff:ffff:ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidSourceAddress(Some("".parse::<Ipv6Addr>().unwrap_err()))));
     }
 
     #[test]
@@ -340,35 +351,35 @@ mod tests {
     fn parse_source_port_too_large() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65536 65535\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidSourcePort(Some("65536".parse::<u16>().unwrap_err()))));
     }
 
     #[test]
     fn parse_destination_port_too_large() {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65536\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidDestinationPort(Some("65536".parse::<u16>().unwrap_err()))));
     }
 
     #[test]
     fn parse_lowercase_proxy() {
         let text = "proxy UNKNOWN\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(Header::try_from(text), Err(ParseError::MissingPrefix));
     }
 
     #[test]
     fn parse_lowercase_protocol_family() {
         let text = "PROXY tcp4\r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidProtocol("tcp4")));
     }
 
     #[test]
     fn parse_too_long() {
         let text = "PROXY UNKNOWN ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535  \r\n";
 
-        assert!(Header::try_from(text).is_err());
+        assert_eq!(Header::try_from(text), Err(ParseError::HeaderTooLong));
     }
 
     #[test]
@@ -384,9 +395,9 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidSourceAddress(
+            Err(ParseError::InvalidSourceAddress(Some(
                 "".parse::<Ipv4Addr>().unwrap_err()
-            ))
+            )))
         );
     }
 
@@ -396,9 +407,9 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidDestinationAddress(
+            Err(ParseError::InvalidDestinationAddress(Some(
                 "".parse::<Ipv4Addr>().unwrap_err()
-            ))
+            )))
         );
     }
 
