@@ -3,6 +3,7 @@ extern crate criterion;
 
 use criterion::black_box;
 use criterion::Criterion;
+use pprof::criterion::{Output, PProfProfiler};
 
 use ppp::model::*;
 use ppp::{parse_header, to_bytes};
@@ -50,7 +51,7 @@ fn ipv4_input() -> Vec<u8> {
     input
 }
 
-fn criterion_benchmark(c: &mut Criterion) {
+fn benchmarks(c: &mut Criterion) {
     let ipv6 = ipv6_input();
     let ipv4 = ipv4_input();
 
@@ -97,5 +98,10 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group! {
+    name = benches;
+    config = Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
+    targets = benchmarks
+}
+
 criterion_main!(benches);
