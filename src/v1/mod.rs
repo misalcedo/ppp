@@ -41,26 +41,18 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
 
         let addresses = match iterator.next() {
             Some(TCP4) => {
-                let source_address_token = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-                let destination_address_token = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+                let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+                let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
                 let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
                 let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
 
-                let source_address = source_address_token
+                let source_address = source_address
                     .parse::<Ipv4Addr>()
-                    .map_err(|e| ParseError::InvalidSourceAddress(Some(e)))?;
+                    .map_err(ParseError::InvalidSourceAddress)?;
 
-                if source_address.to_string().as_str() != source_address_token {
-                    return Err(ParseError::InvalidSourceAddress(None));
-                }
-
-                let destination_address = destination_address_token
+                let destination_address = destination_address
                     .parse::<Ipv4Addr>()
-                    .map_err(|e| ParseError::InvalidDestinationAddress(Some(e)))?;
-
-                if destination_address.to_string().as_str() != destination_address_token {
-                    return Err(ParseError::InvalidDestinationAddress(None));
-                }
+                    .map_err(ParseError::InvalidDestinationAddress)?;
 
                 if source_port.starts_with(ZERO) && source_port != ZERO {
                     return Err(ParseError::InvalidSourcePort(None));
@@ -90,10 +82,10 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
 
                 let source_address = source_address
                     .parse::<Ipv6Addr>()
-                    .map_err(|e| ParseError::InvalidSourceAddress(Some(e)))?;
+                    .map_err(ParseError::InvalidSourceAddress)?;
                 let destination_address = destination_address
                     .parse::<Ipv6Addr>()
-                    .map_err(|e| ParseError::InvalidDestinationAddress(Some(e)))?;
+                    .map_err(ParseError::InvalidDestinationAddress)?;
 
                 if source_port.starts_with(ZERO) && source_port != ZERO {
                     return Err(ParseError::InvalidSourcePort(None));
@@ -213,9 +205,7 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidDestinationAddress(Some(
-                "".parse::<Ipv4Addr>().unwrap_err()
-            )))
+            Err(ParseError::InvalidDestinationAddress("".parse::<Ipv4Addr>().unwrap_err()))
         );
     }
 
@@ -225,9 +215,7 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidSourceAddress(Some(
-                "".parse::<Ipv4Addr>().unwrap_err()
-            )))
+            Err(ParseError::InvalidSourceAddress("".parse::<Ipv4Addr>().unwrap_err()))
         );
     }
 
@@ -266,9 +254,7 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidSourceAddress(Some(
-                "".parse::<Ipv6Addr>().unwrap_err()
-            )))
+            Err(ParseError::InvalidSourceAddress("".parse::<Ipv6Addr>().unwrap_err()))
         );
     }
 
@@ -278,9 +264,7 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidDestinationAddress(Some(
-                "".parse::<Ipv4Addr>().unwrap_err()
-            )))
+            Err(ParseError::InvalidDestinationAddress("".parse::<Ipv4Addr>().unwrap_err()))
         );
     }
 
@@ -334,9 +318,7 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidSourceAddress(Some(
-                "".parse::<Ipv6Addr>().unwrap_err()
-            )))
+            Err(ParseError::InvalidSourceAddress("".parse::<Ipv6Addr>().unwrap_err()))
         );
     }
 
@@ -429,9 +411,7 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidSourceAddress(Some(
-                "".parse::<Ipv4Addr>().unwrap_err()
-            )))
+            Err(ParseError::InvalidSourceAddress("".parse::<Ipv4Addr>().unwrap_err()))
         );
     }
 
@@ -441,9 +421,7 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidDestinationAddress(Some(
-                "".parse::<Ipv4Addr>().unwrap_err()
-            )))
+            Err(ParseError::InvalidDestinationAddress("".parse::<Ipv4Addr>().unwrap_err()))
         );
     }
 

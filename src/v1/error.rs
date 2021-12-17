@@ -15,9 +15,9 @@ pub enum ParseError<'a> {
     #[error("Header does not fit within the expected buffer size of 107 bytes (plus 1 byte for null-terminated strings).")]
     HeaderTooLong,
     #[error("Header contains invalid IP address for the source.")]
-    InvalidSourceAddress(#[source] Option<std::net::AddrParseError>),
+    InvalidSourceAddress(#[source] std::net::AddrParseError),
     #[error("Header contains invalid IP address for the destination.")]
-    InvalidDestinationAddress(#[source] Option<std::net::AddrParseError>),
+    InvalidDestinationAddress(#[source] std::net::AddrParseError),
     #[error("Header contains invalid TCP port for the source.")]
     InvalidSourcePort(#[source] Option<std::num::ParseIntError>),
     #[error("Header contains invalid TCP port for the destination.")]
