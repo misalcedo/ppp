@@ -21,6 +21,10 @@ const PROTOCOL_SUFFIX: &str = "\r\n";
 const UNKNOWN_OFFSET: usize = PROTOCOL_PREFIX.len() + SEPARATOR.len() + UNKNOWN.len() + SEPARATOR.len();
 
 fn parse_header<'a>(input: &'a str) -> Result<Header<'a>, ParseError<'a>> {
+    if input.len() > MAX_LENGTH {
+        return Err(ParseError::HeaderTooLong);
+    }
+
     let header = input.strip_suffix(PROTOCOL_SUFFIX).ok_or(ParseError::MissingNewLine)?;
 
     let mut iterator = header.split(SEPARATOR);
@@ -131,10 +135,6 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
             .find(PROTOCOL_SUFFIX)
             .ok_or(ParseError::MissingNewLine)?;
         let length = end + PROTOCOL_SUFFIX.len();
-
-        if length > MAX_LENGTH {
-            return Err(ParseError::HeaderTooLong);
-        }
 
         parse_header(&input[..length])
     }
