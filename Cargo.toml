@@ -11,6 +11,7 @@ documentation = "https://docs.rs/ppp"
 
 [profile.release]
 lto = true
+debug = true
 
 [dependencies]
 nom = "7"
