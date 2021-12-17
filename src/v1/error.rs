@@ -1,3 +1,4 @@
+/// An error in parsing a text PROXY protocol header.
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ParseError<'a> {
     #[error("Header does not start with the string 'PROXY'.")]
@@ -24,6 +25,7 @@ pub enum ParseError<'a> {
     InvalidDestinationPort(#[source] Option<std::num::ParseIntError>),
 }
 
+/// An error in parsing a text PROXY protocol header that is represented as a byte slice.
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum BinaryParseError<'a> {
     #[error("Encountered an error in parsing the header.")]
