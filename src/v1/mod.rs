@@ -14,6 +14,7 @@ const MAX_LENGTH: usize = 107;
 const ZERO: &str = "0";
 const PROTOCOL_PREFIX: &str = "PROXY";
 const SEPARATOR: &str = " ";
+const PARTS: usize = 6;
 const TCP4: &str = "TCP4";
 const TCP6: &str = "TCP6";
 const UNKNOWN: &str = "UNKNOWN";
@@ -27,7 +28,7 @@ fn parse_header<'a>(input: &'a str) -> Result<Header<'a>, ParseError<'a>> {
 
     let header = input.strip_suffix(PROTOCOL_SUFFIX).ok_or(ParseError::MissingNewLine)?;
 
-    let mut iterator = header.split(SEPARATOR);
+    let mut iterator = header.splitn(PARTS, SEPARATOR);
 
     if Some(PROTOCOL_PREFIX) != iterator.next() {
         return Err(ParseError::MissingPrefix);
@@ -479,7 +480,7 @@ mod tests {
         assert_eq!(
             Header::try_from(text),
             Err(ParseError::InvalidDestinationPort(Some(
-                "".parse::<u16>().unwrap_err()
+                " 65535".parse::<u16>().unwrap_err()
             )))
         );
     }
@@ -490,7 +491,9 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::UnexpectedCharacters)
+            Err(ParseError::InvalidDestinationPort(Some(
+                "65535 ".parse::<u16>().unwrap_err()
+            )))
         );
     }
 }
