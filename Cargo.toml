@@ -7,9 +7,10 @@ edition = "2021"
 license = "Apache-2.0"
 homepage = "https://github.com/misalcedo/ppp"
 repository = "https://github.com/misalcedo/ppp"
-documentation = "https://docs.rs/ppp/1.0.0/ppp/"
+documentation = "https://docs.rs/ppp"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.release]
+lto = true
 
 [dependencies]
 nom = "7"
