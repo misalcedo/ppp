@@ -1,6 +1,7 @@
 use std::fmt;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
+/// A text PROXY protocol header.
 #[derive(Debug, PartialEq)]
 pub struct Header<'a> {
     pub header: &'a str,
@@ -8,11 +9,14 @@ pub struct Header<'a> {
 }
 
 impl<'a> Header<'a> {
+    /// Creates a new `Header` with the given addresses and a reference to the original input.
     pub fn new(header: &'a str, addresses: Addresses<'a>) -> Self {
         Header { header, addresses }
     }
 }
 
+/// The source and destination of a header.
+/// Includes IP (v4 or v6) addresses and TCP ports.
 #[derive(Debug, PartialEq)]
 pub enum Addresses<'a> {
     Tcp4(Tcp4),
@@ -21,6 +25,7 @@ pub enum Addresses<'a> {
 }
 
 impl<'a> Addresses<'a> {
+    /// Create a new IPv4 TCP address.
     pub fn new_tcp4(
         source_address: Ipv4Addr,
         destination_address: Ipv4Addr,
@@ -35,6 +40,7 @@ impl<'a> Addresses<'a> {
         })
     }
 
+    /// Create a new IPv6 TCP address.
     pub fn new_tcp6(
         source_address: Ipv6Addr,
         destination_address: Ipv6Addr,
@@ -49,6 +55,7 @@ impl<'a> Addresses<'a> {
         })
     }
 
+    /// Create a new address with an unknown protocol.
     pub fn new_unknown(rest: &'a str) -> Self {
         Addresses::Unknown(Unknown { rest: Some(rest) })
     }
@@ -66,6 +73,7 @@ impl<'a> fmt::Display for Header<'a> {
     }
 }
 
+/// The source and destination IPv4 addresses and TCP ports of a header.
 #[derive(Debug, PartialEq)]
 pub struct Tcp4 {
     pub source_address: Ipv4Addr,
@@ -74,6 +82,7 @@ pub struct Tcp4 {
     pub destination_port: u16,
 }
 
+/// The source and destination IPv6 addresses and TCP ports of a header.
 #[derive(Debug, PartialEq)]
 pub struct Tcp6 {
     pub source_address: Ipv6Addr,
@@ -82,6 +91,7 @@ pub struct Tcp6 {
     pub destination_port: u16,
 }
 
+/// An address with an unknown protocol.
 #[derive(Debug, PartialEq)]
 pub struct Unknown<'a> {
     pub rest: Option<&'a str>,
