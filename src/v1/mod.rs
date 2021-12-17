@@ -7,19 +7,51 @@ mod error;
 
 pub use borrowed::{Addresses, Header, Tcp4, Tcp6, Unknown};
 pub use error::{BinaryParseError, ParseError};
-use std::net::{Ipv4Addr, Ipv6Addr};
-use std::str::from_utf8;
+use std::net::{Ipv4Addr, Ipv6Addr, AddrParseError};
+use std::str::{from_utf8, FromStr};
 
 const MAX_LENGTH: usize = 107;
 const ZERO: &str = "0";
 const PROTOCOL_PREFIX: &str = "PROXY";
-const SEPARATOR: &str = " ";
+const SEPARATOR: char = ' ';
 const PARTS: usize = 6;
 const TCP4: &str = "TCP4";
 const TCP6: &str = "TCP6";
 const UNKNOWN: &str = "UNKNOWN";
 const PROTOCOL_SUFFIX: &str = "\r\n";
-const UNKNOWN_OFFSET: usize = PROTOCOL_PREFIX.len() + SEPARATOR.len() + UNKNOWN.len() + SEPARATOR.len();
+const UNKNOWN_OFFSET: usize = PROTOCOL_PREFIX.len() + SEPARATOR.len_utf8() + UNKNOWN.len() + SEPARATOR.len_utf8();
+
+fn parse_addresses<'a, T: FromStr<Err=AddrParseError>, I: Iterator<Item=&'a str>>(iterator: &mut I) -> Result<(T, T, u16, u16), ParseError<'a>> {
+    let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+    let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+    let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+    let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+
+    let source_address = source_address
+        .parse::<T>()
+        .map_err(ParseError::InvalidSourceAddress)?;
+    let destination_address = destination_address
+        .parse::<T>()
+        .map_err(ParseError::InvalidDestinationAddress)?;
+
+    if source_port.starts_with(ZERO) && source_port != ZERO {
+        return Err(ParseError::InvalidSourcePort(None));
+    }
+
+    let source_port = source_port
+        .parse::<u16>()
+        .map_err(|e| ParseError::InvalidSourcePort(Some(e)))?;
+
+    if destination_port.starts_with(ZERO) && destination_port != ZERO {
+        return Err(ParseError::InvalidDestinationPort(None));
+    }
+
+    let destination_port = destination_port
+        .parse::<u16>()
+        .map_err(|e| ParseError::InvalidDestinationPort(Some(e)))?;
+
+    Ok((source_address, destination_address, source_port, destination_port))
+}
 
 fn parse_header<'a>(input: &'a str) -> Result<Header<'a>, ParseError<'a>> {
     if input.len() > MAX_LENGTH {
@@ -36,67 +68,14 @@ fn parse_header<'a>(input: &'a str) -> Result<Header<'a>, ParseError<'a>> {
 
     let addresses = match iterator.next() {
         Some(TCP4) => {
-            let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-            let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-            let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-            let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-
-            let source_address = source_address
-                .parse::<Ipv4Addr>()
-                .map_err(ParseError::InvalidSourceAddress)?;
-
-            let destination_address = destination_address
-                .parse::<Ipv4Addr>()
-                .map_err(ParseError::InvalidDestinationAddress)?;
-
-            if source_port.starts_with(ZERO) && source_port != ZERO {
-                return Err(ParseError::InvalidSourcePort(None));
-            }
-
-            let source_port = source_port
-                .parse::<u16>()
-                .map_err(|e| ParseError::InvalidSourcePort(Some(e)))?;
-
-            if destination_port.starts_with(ZERO) && destination_port != ZERO {
-                return Err(ParseError::InvalidDestinationPort(None));
-            }
-
-            let destination_port = destination_port
-                .parse::<u16>()
-                .map_err(|e| ParseError::InvalidDestinationPort(Some(e)))?;
+            let (source_address, destination_address, source_port, destination_port) = parse_addresses::<Ipv4Addr, _>(&mut iterator)?;
 
             Addresses::Tcp4(Tcp4 {
                 source_address, source_port, destination_address, destination_port,
             })
         }
         Some(TCP6) => {
-            let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-            let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-            let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-            let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-
-            let source_address = source_address
-                .parse::<Ipv6Addr>()
-                .map_err(ParseError::InvalidSourceAddress)?;
-            let destination_address = destination_address
-                .parse::<Ipv6Addr>()
-                .map_err(ParseError::InvalidDestinationAddress)?;
-
-            if source_port.starts_with(ZERO) && source_port != ZERO {
-                return Err(ParseError::InvalidSourcePort(None));
-            }
-
-            let source_port = source_port
-                .parse::<u16>()
-                .map_err(|e| ParseError::InvalidSourcePort(Some(e)))?;
-
-            if destination_port.starts_with(ZERO) && destination_port != ZERO {
-                return Err(ParseError::InvalidDestinationPort(None));
-            }
-
-            let destination_port = destination_port
-                .parse::<u16>()
-                .map_err(|e| ParseError::InvalidDestinationPort(Some(e)))?;
+            let (source_address, destination_address, source_port, destination_port) = parse_addresses::<Ipv6Addr, _>(&mut iterator)?;
 
             Addresses::Tcp6(Tcp6 {
                 source_address, source_port, destination_address, destination_port,
