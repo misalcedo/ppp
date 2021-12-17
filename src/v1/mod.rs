@@ -136,7 +136,7 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
             return Err(ParseError::HeaderTooLong);
         }
 
-        parse_header(&input[..end])
+        parse_header(&input[..length])
     }
 }
 
