@@ -5,10 +5,18 @@ use pprof::criterion::{Output, PProfProfiler};
 use ppp::{parse_header, v1};
 
 fn benchmarks(c: &mut Criterion) {
-    c.bench_function("ppp v2 text tcp4", |b| {
+    c.bench_function("ppp v2 text tcp4 - bytes", |b| {
         b.iter(|| {
             v1::Header::try_from(black_box(
                 "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n".as_bytes(),
+            ))
+        })
+    });
+
+    c.bench_function("ppp v2 text tcp4 - string", |b| {
+        b.iter(|| {
+            v1::Header::try_from(black_box(
+                "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n",
             ))
         })
     });

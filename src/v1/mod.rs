@@ -156,6 +156,36 @@ mod tests {
     use super::*;
 
     #[test]
+    fn bytes_invalid_utf8() {
+        let text = b"Hello \xF0\x90\x80World\r\n";
+        
+        assert_eq!(
+            Header::try_from(&text[..]).unwrap_err(),
+            BinaryParseError::InvalidUtf8(from_utf8(text).unwrap_err())
+        );
+    }
+
+    #[test]
+    fn bytes_missing_newline() {
+        let text = b"Hello \xF0\x90\x80World";
+        
+        assert_eq!(
+            Header::try_from(&text[..]).unwrap_err(),
+            BinaryParseError::Parse(ParseError::MissingNewLine)
+        );
+    }
+
+    #[test]
+    fn binary_exact_tcp4() {
+        let ip = "255.255.255.255".parse().unwrap();
+        let port = 65535;
+        let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n";
+        let expected = Header::new(text, Addresses::new_tcp4(ip, ip, port, port));
+
+        assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
+    }
+
+    #[test]
     fn exact_tcp4() {
         let ip = "255.255.255.255".parse().unwrap();
         let port = 65535;
