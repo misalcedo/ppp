@@ -21,7 +21,7 @@ const PARTS: usize = 6;
 /// Parses the addresses and ports from a PROY protocol header for IPv4 and IPv6.
 fn parse_addresses<'a, T: FromStr<Err = AddrParseError>, I: Iterator<Item = &'a str>>(
     iterator: &mut I,
-) -> Result<(T, T, u16, u16), ParseError<'a>> {
+) -> Result<(T, T, u16, u16), ParseError> {
     let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
     let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
     let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
@@ -60,7 +60,7 @@ fn parse_addresses<'a, T: FromStr<Err = AddrParseError>, I: Iterator<Item = &'a 
 
 /// Parses a text PROXY protocol header.
 /// The given string is expected to only include the header.
-fn parse_header<'a>(header: &'a str) -> Result<Header<'a>, ParseError<'a>> {
+fn parse_header<'a>(header: &'a str) -> Result<Header<'a>, ParseError> {
     if header.len() > MAX_LENGTH {
         return Err(ParseError::HeaderTooLong);
     }
@@ -103,7 +103,7 @@ fn parse_header<'a>(header: &'a str) -> Result<Header<'a>, ParseError<'a>> {
             Addresses::Unknown
         }
         Some(protocol) if !protocol.is_empty() => {
-            return Err(ParseError::InvalidProtocol(protocol))
+            return Err(ParseError::InvalidProtocol)
         }
         _ => return Err(ParseError::MissingProtocol),
     };
@@ -116,7 +116,7 @@ fn parse_header<'a>(header: &'a str) -> Result<Header<'a>, ParseError<'a>> {
 }
 
 impl<'a> TryFrom<&'a str> for Header<'a> {
-    type Error = ParseError<'a>;
+    type Error = ParseError;
 
     fn try_from(input: &'a str) -> Result<Self, Self::Error> {
         let end = input
@@ -129,7 +129,7 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
 }
 
 impl<'a> TryFrom<&'a [u8]> for Header<'a> {
-    type Error = BinaryParseError<'a>;
+    type Error = BinaryParseError;
 
     fn try_from(input: &'a [u8]) -> Result<Self, Self::Error> {
         let end = input
@@ -142,6 +142,14 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
         let header = from_utf8(&input[..length])?;
 
         parse_header(header).map_err(BinaryParseError::Parse)
+    }
+}
+
+impl FromStr for Addresses {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Header::try_from(s)?.addresses)
     }
 }
 
@@ -420,7 +428,7 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidProtocol("tcp4"))
+            Err(ParseError::InvalidProtocol)
         );
     }
 

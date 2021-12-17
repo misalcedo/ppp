@@ -1,10 +1,10 @@
 /// An error in parsing a text PROXY protocol header.
 #[derive(thiserror::Error, Debug, PartialEq)]
-pub enum ParseError<'a> {
+pub enum ParseError {
     #[error("Header does not start with the string 'PROXY'.")]
     MissingPrefix,
     #[error("Header has an invalid protocol.")]
-    InvalidProtocol(&'a str),
+    InvalidProtocol,
     #[error("Header missing protocol.")]
     MissingProtocol,
     #[error("Header missing an expected part of the address.")]
@@ -27,9 +27,9 @@ pub enum ParseError<'a> {
 
 /// An error in parsing a text PROXY protocol header that is represented as a byte slice.
 #[derive(thiserror::Error, Debug, PartialEq)]
-pub enum BinaryParseError<'a> {
+pub enum BinaryParseError {
     #[error("Encountered an error in parsing the header.")]
-    Parse(ParseError<'a>),
+    Parse(ParseError),
     #[error("Header is not valid UTF-8.")]
     InvalidUtf8(#[from] std::str::Utf8Error),
 }
