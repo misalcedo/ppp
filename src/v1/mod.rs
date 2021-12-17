@@ -46,8 +46,6 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                 let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
                 let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
 
-                // check if str != addr.to_string(), then throw err
-
                 let source_ip_address = source_address
                     .parse::<Ipv4Addr>()
                     .map_err(|e| ParseError::InvalidSourceAddress(Some(e)))?;
