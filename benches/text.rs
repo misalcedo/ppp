@@ -1,5 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main};
 use criterion::Criterion;
+use criterion::{black_box, criterion_group, criterion_main};
 use pprof::criterion::{Output, PProfProfiler};
 
 use ppp::model::*;

@@ -7,7 +7,7 @@ mod error;
 
 pub use borrowed::{Addresses, Header, Tcp4, Tcp6, Unknown};
 pub use error::{BinaryParseError, ParseError};
-use std::net::{Ipv4Addr, Ipv6Addr, AddrParseError};
+use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::str::{from_utf8, FromStr};
 
 const MAX_LENGTH: usize = 107;
@@ -19,9 +19,12 @@ const TCP4: &str = "TCP4";
 const TCP6: &str = "TCP6";
 const UNKNOWN: &str = "UNKNOWN";
 const PROTOCOL_SUFFIX: &str = "\r\n";
-const UNKNOWN_OFFSET: usize = PROTOCOL_PREFIX.len() + SEPARATOR.len_utf8() + UNKNOWN.len() + SEPARATOR.len_utf8();
+const UNKNOWN_OFFSET: usize =
+    PROTOCOL_PREFIX.len() + SEPARATOR.len_utf8() + UNKNOWN.len() + SEPARATOR.len_utf8();
 
-fn parse_addresses<'a, T: FromStr<Err=AddrParseError>, I: Iterator<Item=&'a str>>(iterator: &mut I) -> Result<(T, T, u16, u16), ParseError<'a>> {
+fn parse_addresses<'a, T: FromStr<Err = AddrParseError>, I: Iterator<Item = &'a str>>(
+    iterator: &mut I,
+) -> Result<(T, T, u16, u16), ParseError<'a>> {
     let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
     let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
     let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
@@ -50,7 +53,12 @@ fn parse_addresses<'a, T: FromStr<Err=AddrParseError>, I: Iterator<Item=&'a str>
         .parse::<u16>()
         .map_err(|e| ParseError::InvalidDestinationPort(Some(e)))?;
 
-    Ok((source_address, destination_address, source_port, destination_port))
+    Ok((
+        source_address,
+        destination_address,
+        source_port,
+        destination_port,
+    ))
 }
 
 fn parse_header<'a>(input: &'a str) -> Result<Header<'a>, ParseError<'a>> {
@@ -58,7 +66,9 @@ fn parse_header<'a>(input: &'a str) -> Result<Header<'a>, ParseError<'a>> {
         return Err(ParseError::HeaderTooLong);
     }
 
-    let header = input.strip_suffix(PROTOCOL_SUFFIX).ok_or(ParseError::MissingNewLine)?;
+    let header = input
+        .strip_suffix(PROTOCOL_SUFFIX)
+        .ok_or(ParseError::MissingNewLine)?;
 
     let mut iterator = header.splitn(PARTS, SEPARATOR);
 
@@ -68,17 +78,25 @@ fn parse_header<'a>(input: &'a str) -> Result<Header<'a>, ParseError<'a>> {
 
     let addresses = match iterator.next() {
         Some(TCP4) => {
-            let (source_address, destination_address, source_port, destination_port) = parse_addresses::<Ipv4Addr, _>(&mut iterator)?;
+            let (source_address, destination_address, source_port, destination_port) =
+                parse_addresses::<Ipv4Addr, _>(&mut iterator)?;
 
             Addresses::Tcp4(Tcp4 {
-                source_address, source_port, destination_address, destination_port,
+                source_address,
+                source_port,
+                destination_address,
+                destination_port,
             })
         }
         Some(TCP6) => {
-            let (source_address, destination_address, source_port, destination_port) = parse_addresses::<Ipv6Addr, _>(&mut iterator)?;
+            let (source_address, destination_address, source_port, destination_port) =
+                parse_addresses::<Ipv6Addr, _>(&mut iterator)?;
 
             Addresses::Tcp6(Tcp6 {
-                source_address, source_port, destination_address, destination_port,
+                source_address,
+                source_port,
+                destination_address,
+                destination_port,
             })
         }
         Some(UNKNOWN) => {
@@ -144,7 +162,7 @@ mod tests {
     #[test]
     fn bytes_invalid_utf8() {
         let text = b"Hello \xF0\x90\x80World\r\n";
-        
+
         assert_eq!(
             Header::try_from(&text[..]).unwrap_err(),
             BinaryParseError::InvalidUtf8(from_utf8(text).unwrap_err())
@@ -154,7 +172,7 @@ mod tests {
     #[test]
     fn bytes_missing_newline() {
         let text = b"Hello \xF0\x90\x80World";
-        
+
         assert_eq!(
             Header::try_from(&text[..]).unwrap_err(),
             BinaryParseError::Parse(ParseError::MissingNewLine)
@@ -220,7 +238,9 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidDestinationAddress("".parse::<Ipv4Addr>().unwrap_err()))
+            Err(ParseError::InvalidDestinationAddress(
+                "".parse::<Ipv4Addr>().unwrap_err()
+            ))
         );
     }
 
@@ -230,7 +250,9 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidSourceAddress("".parse::<Ipv4Addr>().unwrap_err()))
+            Err(ParseError::InvalidSourceAddress(
+                "".parse::<Ipv4Addr>().unwrap_err()
+            ))
         );
     }
 
@@ -269,7 +291,9 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidSourceAddress("".parse::<Ipv6Addr>().unwrap_err()))
+            Err(ParseError::InvalidSourceAddress(
+                "".parse::<Ipv6Addr>().unwrap_err()
+            ))
         );
     }
 
@@ -279,7 +303,9 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidDestinationAddress("".parse::<Ipv4Addr>().unwrap_err()))
+            Err(ParseError::InvalidDestinationAddress(
+                "".parse::<Ipv4Addr>().unwrap_err()
+            ))
         );
     }
 
@@ -333,7 +359,9 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidSourceAddress("".parse::<Ipv6Addr>().unwrap_err()))
+            Err(ParseError::InvalidSourceAddress(
+                "".parse::<Ipv6Addr>().unwrap_err()
+            ))
         );
     }
 
@@ -426,7 +454,9 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidSourceAddress("".parse::<Ipv4Addr>().unwrap_err()))
+            Err(ParseError::InvalidSourceAddress(
+                "".parse::<Ipv4Addr>().unwrap_err()
+            ))
         );
     }
 
@@ -436,7 +466,9 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidDestinationAddress("".parse::<Ipv4Addr>().unwrap_err()))
+            Err(ParseError::InvalidDestinationAddress(
+                "".parse::<Ipv4Addr>().unwrap_err()
+            ))
         );
     }
 

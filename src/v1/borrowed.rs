@@ -28,7 +28,10 @@ impl<'a> Addresses<'a> {
         destination_port: u16,
     ) -> Self {
         Addresses::Tcp4(Tcp4 {
-            source_address, source_port, destination_address, destination_port,
+            source_address,
+            source_port,
+            destination_address,
+            destination_port,
         })
     }
 
@@ -39,7 +42,10 @@ impl<'a> Addresses<'a> {
         destination_port: u16,
     ) -> Self {
         Addresses::Tcp6(Tcp6 {
-            source_address, source_port, destination_address, destination_port,
+            source_address,
+            source_port,
+            destination_address,
+            destination_port,
         })
     }
 
