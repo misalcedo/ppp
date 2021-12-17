@@ -33,7 +33,7 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
         }
 
         let header = &input[..end];
-        let mut iterator = header.split(SEPARATOR).peekable();
+        let mut iterator = header.split(SEPARATOR);
 
         if Some(PROTOCOL_PREFIX) != iterator.next() {
             return Err(ParseError::MissingPrefix);
@@ -125,7 +125,7 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
             _ => return Err(ParseError::MissingProtocol),
         };
 
-        if iterator.peek().is_some() {
+        if iterator.next().is_some() {
             return Err(ParseError::UnexpectedCharacters);
         }
 
