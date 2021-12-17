@@ -82,15 +82,18 @@ fn v2_benchmarks(c: &mut Criterion) {
 
     c.bench_function("ppp v2 header to text tcp4", |b| {
         b.iter(|| {
-            black_box(v1::Header::new(
-                "PROXY TCP4 127.0.1.2 192.168.1.101 80 443\r\n",
-                v1::Addresses::new_tcp4(
-                Ipv4Addr::new(127, 0, 1, 2),
-                Ipv4Addr::new(192, 168, 1, 101),
-                80,
-                443,
+            black_box(
+                v1::Header::new(
+                    "PROXY TCP4 127.0.1.2 192.168.1.101 80 443\r\n",
+                    v1::Addresses::new_tcp4(
+                        Ipv4Addr::new(127, 0, 1, 2),
+                        Ipv4Addr::new(192, 168, 1, 101),
+                        80,
+                        443,
+                    ),
+                )
+                .to_string(),
             )
-            ).to_string())
         })
     });
 
@@ -107,8 +110,7 @@ fn v2_benchmarks(c: &mut Criterion) {
                 ]),
                 443,
                 65535,
-            )
-            ).to_string())
+            )).to_string())
         })
     });
 
