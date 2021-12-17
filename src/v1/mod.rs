@@ -5,30 +5,18 @@
 mod model;
 mod error;
 
-pub use model::{Addresses, Header, Tcp4, Tcp6, Unknown};
+use model::{SEPARATOR, PROTOCOL_PREFIX, PROTOCOL_SUFFIX};
+pub use model::{Addresses, Header, Tcp4, Tcp6, TCP4, TCP6, UNKNOWN};
 pub use error::{BinaryParseError, ParseError};
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::str::{from_utf8, FromStr};
 
+const ZERO: &str = "0";
+
 /// The maximum length of a header in bytes.
 const MAX_LENGTH: usize = 107;
-const ZERO: &str = "0";
-const PROTOCOL_PREFIX: &str = "PROXY";
-/// The sperator of the header parts.
-const SEPARATOR: char = ' ';
 /// The total number of parts in the header.
 const PARTS: usize = 6;
-
-const TCP4: &str = "TCP4";
-const TCP6: &str = "TCP6";
-const UNKNOWN: &str = "UNKNOWN";
-
-const PROTOCOL_SUFFIX: &str = "\r\n";
-
-/// The offset from the start of the header until the portion of the header to be skipped.
-/// Only applies when the protocol is UNKNOWN and there are bytes after the protocol.
-const UNKNOWN_OFFSET: usize =
-    PROTOCOL_PREFIX.len() + SEPARATOR.len_utf8() + UNKNOWN.len() + SEPARATOR.len_utf8();
 
 /// Parses the addresses and ports from a PROY protocol header for IPv4 and IPv6.
 fn parse_addresses<'a, T: FromStr<Err = AddrParseError>, I: Iterator<Item = &'a str>>(
@@ -111,14 +99,9 @@ fn parse_header<'a>(input: &'a str) -> Result<Header<'a>, ParseError<'a>> {
             })
         }
         Some(UNKNOWN) => {
-            let rest = match iterator.next() {
-                Some(_) => Some(&header[UNKNOWN_OFFSET..]),
-                None => None,
-            };
-
             while iterator.next().is_some() {}
 
-            Addresses::Unknown(Unknown { rest })
+            Addresses::Unknown
         }
         Some(protocol) if !protocol.is_empty() => {
             return Err(ParseError::InvalidProtocol(protocol))
@@ -379,7 +362,7 @@ mod tests {
     #[test]
     fn parse_worst_case() {
         let text = "PROXY UNKNOWN ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
-        let expected = Header::new(text, Addresses::new_unknown("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535"));
+        let expected = Header::new(text, Addresses::Unknown);
 
         assert_eq!(Header::try_from(text), Ok(expected));
     }
