@@ -1,5 +1,5 @@
 use std::fmt;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
+use std::net::{Ipv4Addr, Ipv6Addr};
 
 #[derive(Debug, PartialEq)]
 pub struct Header<'a> {
@@ -28,8 +28,7 @@ impl<'a> Addresses<'a> {
         destination_port: u16,
     ) -> Self {
         Addresses::Tcp4(Tcp4 {
-            source: SocketAddrV4::new(source_address, source_port),
-            destination: SocketAddrV4::new(destination_address, destination_port),
+            source_address, source_port, destination_address, destination_port,
         })
     }
 
@@ -40,8 +39,7 @@ impl<'a> Addresses<'a> {
         destination_port: u16,
     ) -> Self {
         Addresses::Tcp6(Tcp6 {
-            source: SocketAddrV6::new(source_address, source_port, 0, 0),
-            destination: SocketAddrV6::new(destination_address, destination_port, 0, 0),
+            source_address, source_port, destination_address, destination_port,
         })
     }
 
@@ -64,14 +62,18 @@ impl<'a> fmt::Display for Header<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct Tcp4 {
-    pub source: SocketAddrV4,
-    pub destination: SocketAddrV4,
+    pub source_address: Ipv4Addr,
+    pub source_port: u16,
+    pub destination_address: Ipv4Addr,
+    pub destination_port: u16,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Tcp6 {
-    pub source: SocketAddrV6,
-    pub destination: SocketAddrV6,
+    pub source_address: Ipv6Addr,
+    pub source_port: u16,
+    pub destination_address: Ipv6Addr,
+    pub destination_port: u16,
 }
 
 #[derive(Debug, PartialEq)]

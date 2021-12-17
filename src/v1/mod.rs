@@ -7,7 +7,7 @@ mod error;
 
 pub use borrowed::{Addresses, Header, Tcp4, Tcp6, Unknown};
 pub use error::{BinaryParseError, ParseError};
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::from_utf8;
 
 const MAX_LENGTH: usize = 107;
@@ -41,24 +41,24 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
 
         let addresses = match iterator.next() {
             Some(TCP4) => {
-                let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-                let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+                let source_address_token = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+                let destination_address_token = iterator.next().ok_or(ParseError::EmptyAddresses)?;
                 let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
                 let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
 
-                let source_ip_address = source_address
+                let source_address = source_address_token
                     .parse::<Ipv4Addr>()
                     .map_err(|e| ParseError::InvalidSourceAddress(Some(e)))?;
 
-                if source_ip_address.to_string().as_str() != source_address {
+                if source_address.to_string().as_str() != source_address_token {
                     return Err(ParseError::InvalidSourceAddress(None));
                 }
 
-                let destination_ip_address = destination_address
+                let destination_address = destination_address_token
                     .parse::<Ipv4Addr>()
                     .map_err(|e| ParseError::InvalidDestinationAddress(Some(e)))?;
 
-                if destination_ip_address.to_string().as_str() != destination_address {
+                if destination_address.to_string().as_str() != destination_address_token {
                     return Err(ParseError::InvalidDestinationAddress(None));
                 }
 
@@ -79,8 +79,7 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                     .map_err(|e| ParseError::InvalidDestinationPort(Some(e)))?;
 
                 Addresses::Tcp4(Tcp4 {
-                    source: SocketAddrV4::new(source_ip_address, source_port),
-                    destination: SocketAddrV4::new(destination_ip_address, destination_port),
+                    source_address, source_port, destination_address, destination_port,
                 })
             }
             Some(TCP6) => {
@@ -113,8 +112,7 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                     .map_err(|e| ParseError::InvalidDestinationPort(Some(e)))?;
 
                 Addresses::Tcp6(Tcp6 {
-                    source: SocketAddrV6::new(source_address, source_port, 0, 0),
-                    destination: SocketAddrV6::new(destination_address, destination_port, 0, 0),
+                    source_address, source_port, destination_address, destination_port,
                 })
             }
             Some(UNKNOWN) => {

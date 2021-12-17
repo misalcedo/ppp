@@ -28,3 +28,7 @@ harness = false
 [[bench]]
 name = "text"
 harness = false
+
+[[bench]]
+name = "v2"
+harness = false
