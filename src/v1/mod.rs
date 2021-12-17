@@ -10,18 +10,27 @@ pub use error::{BinaryParseError, ParseError};
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::str::{from_utf8, FromStr};
 
+/// The maximum length of a header in bytes.
 const MAX_LENGTH: usize = 107;
 const ZERO: &str = "0";
 const PROTOCOL_PREFIX: &str = "PROXY";
+/// The sperator of the header parts.
 const SEPARATOR: char = ' ';
+/// The total number of parts in the header.
 const PARTS: usize = 6;
+
 const TCP4: &str = "TCP4";
 const TCP6: &str = "TCP6";
 const UNKNOWN: &str = "UNKNOWN";
+
 const PROTOCOL_SUFFIX: &str = "\r\n";
+
+/// The offset from the start of the header until the portion of the header to be skipped.
+/// Only applies when the protocol is UNKNOWN and there are bytes after the protocol.
 const UNKNOWN_OFFSET: usize =
     PROTOCOL_PREFIX.len() + SEPARATOR.len_utf8() + UNKNOWN.len() + SEPARATOR.len_utf8();
 
+/// Parses the addresses and ports from a PROY protocol header for IPv4 and IPv6.
 fn parse_addresses<'a, T: FromStr<Err = AddrParseError>, I: Iterator<Item = &'a str>>(
     iterator: &mut I,
 ) -> Result<(T, T, u16, u16), ParseError<'a>> {
@@ -61,6 +70,8 @@ fn parse_addresses<'a, T: FromStr<Err = AddrParseError>, I: Iterator<Item = &'a 
     ))
 }
 
+/// Parses a text PROXY protocol header.
+/// The given string is expected to only include the header.
 fn parse_header<'a>(input: &'a str) -> Result<Header<'a>, ParseError<'a>> {
     if input.len() > MAX_LENGTH {
         return Err(ParseError::HeaderTooLong);
