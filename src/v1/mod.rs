@@ -20,6 +20,109 @@ const UNKNOWN: &str = "UNKNOWN";
 const PROTOCOL_SUFFIX: &str = "\r\n";
 const UNKNOWN_OFFSET: usize = PROTOCOL_PREFIX.len() + SEPARATOR.len() + UNKNOWN.len() + SEPARATOR.len();
 
+fn parse_header<'a>(input: &'a str) -> Result<Header<'a>, ParseError<'a>> {
+    let header = input.strip_suffix(PROTOCOL_SUFFIX).ok_or(ParseError::MissingNewLine)?;
+
+    let mut iterator = header.split(SEPARATOR);
+
+    if Some(PROTOCOL_PREFIX) != iterator.next() {
+        return Err(ParseError::MissingPrefix);
+    }
+
+    let addresses = match iterator.next() {
+        Some(TCP4) => {
+            let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+            let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+            let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+            let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+
+            let source_address = source_address
+                .parse::<Ipv4Addr>()
+                .map_err(ParseError::InvalidSourceAddress)?;
+
+            let destination_address = destination_address
+                .parse::<Ipv4Addr>()
+                .map_err(ParseError::InvalidDestinationAddress)?;
+
+            if source_port.starts_with(ZERO) && source_port != ZERO {
+                return Err(ParseError::InvalidSourcePort(None));
+            }
+
+            let source_port = source_port
+                .parse::<u16>()
+                .map_err(|e| ParseError::InvalidSourcePort(Some(e)))?;
+
+            if destination_port.starts_with(ZERO) && destination_port != ZERO {
+                return Err(ParseError::InvalidDestinationPort(None));
+            }
+
+            let destination_port = destination_port
+                .parse::<u16>()
+                .map_err(|e| ParseError::InvalidDestinationPort(Some(e)))?;
+
+            Addresses::Tcp4(Tcp4 {
+                source_address, source_port, destination_address, destination_port,
+            })
+        }
+        Some(TCP6) => {
+            let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+            let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+            let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+            let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+
+            let source_address = source_address
+                .parse::<Ipv6Addr>()
+                .map_err(ParseError::InvalidSourceAddress)?;
+            let destination_address = destination_address
+                .parse::<Ipv6Addr>()
+                .map_err(ParseError::InvalidDestinationAddress)?;
+
+            if source_port.starts_with(ZERO) && source_port != ZERO {
+                return Err(ParseError::InvalidSourcePort(None));
+            }
+
+            let source_port = source_port
+                .parse::<u16>()
+                .map_err(|e| ParseError::InvalidSourcePort(Some(e)))?;
+
+            if destination_port.starts_with(ZERO) && destination_port != ZERO {
+                return Err(ParseError::InvalidDestinationPort(None));
+            }
+
+            let destination_port = destination_port
+                .parse::<u16>()
+                .map_err(|e| ParseError::InvalidDestinationPort(Some(e)))?;
+
+            Addresses::Tcp6(Tcp6 {
+                source_address, source_port, destination_address, destination_port,
+            })
+        }
+        Some(UNKNOWN) => {
+            let rest = match iterator.next() {
+                Some(_) => Some(&header[UNKNOWN_OFFSET..]),
+                None => None,
+            };
+
+            while iterator.next().is_some() {}
+
+            Addresses::Unknown(Unknown { rest })
+        }
+        Some(protocol) if !protocol.is_empty() => {
+            return Err(ParseError::InvalidProtocol(protocol))
+        }
+        _ => return Err(ParseError::MissingProtocol),
+    };
+
+    if iterator.next().is_some() {
+        return Err(ParseError::UnexpectedCharacters);
+    }
+
+    Ok(Header {
+        header: input,
+        addresses,
+    })
+}
+
 impl<'a> TryFrom<&'a str> for Header<'a> {
     type Error = ParseError<'a>;
 
@@ -33,105 +136,7 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
             return Err(ParseError::HeaderTooLong);
         }
 
-        let header = &input[..end];
-        let mut iterator = header.split(SEPARATOR);
-
-        if Some(PROTOCOL_PREFIX) != iterator.next() {
-            return Err(ParseError::MissingPrefix);
-        }
-
-        let addresses = match iterator.next() {
-            Some(TCP4) => {
-                let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-                let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-                let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-                let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-
-                let source_address = source_address
-                    .parse::<Ipv4Addr>()
-                    .map_err(ParseError::InvalidSourceAddress)?;
-
-                let destination_address = destination_address
-                    .parse::<Ipv4Addr>()
-                    .map_err(ParseError::InvalidDestinationAddress)?;
-
-                if source_port.starts_with(ZERO) && source_port != ZERO {
-                    return Err(ParseError::InvalidSourcePort(None));
-                }
-
-                let source_port = source_port
-                    .parse::<u16>()
-                    .map_err(|e| ParseError::InvalidSourcePort(Some(e)))?;
-
-                if destination_port.starts_with(ZERO) && destination_port != ZERO {
-                    return Err(ParseError::InvalidDestinationPort(None));
-                }
-
-                let destination_port = destination_port
-                    .parse::<u16>()
-                    .map_err(|e| ParseError::InvalidDestinationPort(Some(e)))?;
-
-                Addresses::Tcp4(Tcp4 {
-                    source_address, source_port, destination_address, destination_port,
-                })
-            }
-            Some(TCP6) => {
-                let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-                let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-                let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-                let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-
-                let source_address = source_address
-                    .parse::<Ipv6Addr>()
-                    .map_err(ParseError::InvalidSourceAddress)?;
-                let destination_address = destination_address
-                    .parse::<Ipv6Addr>()
-                    .map_err(ParseError::InvalidDestinationAddress)?;
-
-                if source_port.starts_with(ZERO) && source_port != ZERO {
-                    return Err(ParseError::InvalidSourcePort(None));
-                }
-
-                let source_port = source_port
-                    .parse::<u16>()
-                    .map_err(|e| ParseError::InvalidSourcePort(Some(e)))?;
-
-                if destination_port.starts_with(ZERO) && destination_port != ZERO {
-                    return Err(ParseError::InvalidDestinationPort(None));
-                }
-
-                let destination_port = destination_port
-                    .parse::<u16>()
-                    .map_err(|e| ParseError::InvalidDestinationPort(Some(e)))?;
-
-                Addresses::Tcp6(Tcp6 {
-                    source_address, source_port, destination_address, destination_port,
-                })
-            }
-            Some(UNKNOWN) => {
-                let rest = match iterator.next() {
-                    Some(_) => Some(&header[UNKNOWN_OFFSET..]),
-                    None => None,
-                };
-
-                while iterator.next().is_some() {}
-
-                Addresses::Unknown(Unknown { rest })
-            }
-            Some(protocol) if !protocol.is_empty() => {
-                return Err(ParseError::InvalidProtocol(protocol))
-            }
-            _ => return Err(ParseError::MissingProtocol),
-        };
-
-        if iterator.next().is_some() {
-            return Err(ParseError::UnexpectedCharacters);
-        }
-
-        Ok(Header {
-            header: &input[..length],
-            addresses,
-        })
+        parse_header(&input[..end])
     }
 }
 
@@ -144,10 +149,11 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
             .position(|window| window == PROTOCOL_SUFFIX.as_bytes())
             .ok_or(ParseError::MissingNewLine)
             .map_err(BinaryParseError::Parse)?;
+
         let length = end + PROTOCOL_SUFFIX.len();
         let header = from_utf8(&input[..length])?;
 
-        Header::try_from(header).map_err(BinaryParseError::Parse)
+        parse_header(header).map_err(BinaryParseError::Parse)
     }
 }
 
