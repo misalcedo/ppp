@@ -18,6 +18,7 @@ const TCP4: &str = "TCP4";
 const TCP6: &str = "TCP6";
 const UNKNOWN: &str = "UNKNOWN";
 const PROTOCOL_SUFFIX: &str = "\r\n";
+const UNKNOWN_OFFSET: usize = PROTOCOL_PREFIX.len() + SEPARATOR.len() + UNKNOWN.len() + SEPARATOR.len();
 
 impl<'a> TryFrom<&'a str> for Header<'a> {
     type Error = ParseError<'a>;
@@ -108,10 +109,8 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
                 })
             }
             Some(UNKNOWN) => {
-                let start =
-                    PROTOCOL_PREFIX.len() + SEPARATOR.len() + UNKNOWN.len() + SEPARATOR.len();
                 let rest = match iterator.next() {
-                    Some(_) => Some(&header[start..]),
+                    Some(_) => Some(&header[UNKNOWN_OFFSET..]),
                     None => None,
                 };
 
