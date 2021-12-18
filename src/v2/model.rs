@@ -44,11 +44,11 @@ impl<'a> Header<'a> {
         &self.header[self.address_bytes_end()..]
     }
 
-    pub fn tlvs(&self) -> Result<TypeLengthValues<'a>, ParseError> {
-        Ok(TypeLengthValues {
+    pub fn tlvs(&self) -> TypeLengthValues<'a> {
+        TypeLengthValues {
             bytes: self.additional_bytes(),
             offset: 0,
-        })
+        }
     }
 }
 
