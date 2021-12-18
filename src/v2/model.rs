@@ -1,3 +1,4 @@
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Header<'a> {
     pub header: &'a [u8],
     pub version: Version,
@@ -8,19 +9,29 @@ pub struct Header<'a> {
     pub tlvs: TypeLengthValues<'a>,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct TypeLengthValues<'a> {
     pub buffer: &'a [u8],
 }
 
+impl<'a> Default for TypeLengthValues<'a> {
+    fn default() -> Self {
+        TypeLengthValues { buffer: &[] }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Version {
     Two = 0x20,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Command {
     Local = 0,
     Proxy,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum AddressFamily {
     Unspecified = 0x00,
     IPv4 = 0x10,
@@ -28,16 +39,19 @@ pub enum AddressFamily {
     Unix = 0x30,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Protocol {
     Unspecified = 0,
     Stream,
     Datagram,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct TypeLengthValue<'a> {
     tlv: &'a [u8],
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Type {
     ALPN = 1,
     Authority,
@@ -53,6 +67,7 @@ pub enum Type {
     NetworkNamespace = 30,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ClientType {
     SSL = 1,
     CertificateConnection,
