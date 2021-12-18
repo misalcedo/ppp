@@ -59,6 +59,14 @@ fn benchmarks(c: &mut Criterion) {
                 b.iter(|| h.to_string());
             },
         );
+
+        group.bench_with_input(
+            BenchmarkId::new("v1::Addresses::to_string", id),
+            &header.addresses,
+            |b, a| {
+                b.iter(|| a.to_string());
+            },
+        );
     }
 
     group.finish();
