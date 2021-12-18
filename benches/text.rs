@@ -1,5 +1,5 @@
-use criterion::{BenchmarkId, Criterion};
 use criterion::{black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
 
 use ppp::model::*;
@@ -67,9 +67,13 @@ fn benchmarks_v2(c: &mut Criterion) {
     ];
 
     for input in inputs {
-        group.bench_with_input(BenchmarkId::from_parameter(input), input.as_bytes(), |b, i| {
-            b.iter(|| v1::Header::try_from(i));
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(input),
+            input.as_bytes(),
+            |b, i| {
+                b.iter(|| v1::Header::try_from(i));
+            },
+        );
     }
 
     let headers = [

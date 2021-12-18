@@ -1,9 +1,14 @@
 pub struct Header<'a> {
     pub header: &'a [u8],
+    pub version: Version,
+    pub command: Command,
+    pub address_family: AddressFamily,
+    pub protocol: Protocol,
+    pub length: u16,
 }
 
 pub struct Tlvs<'a> {
-    buffer: &'a [u8]
+    buffer: &'a [u8],
 }
 
 pub enum Version {
@@ -16,10 +21,10 @@ pub enum Command {
 }
 
 pub enum AddressFamily {
-    Unspecified = 0,
-    IPv4,
-    IPv6,
-    Unix,
+    Unspecified = 0x00,
+    IPv4 = 0x10,
+    IPv6 = 0x20,
+    Unix = 0x30,
 }
 
 pub enum Protocol {

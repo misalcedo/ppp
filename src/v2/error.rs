@@ -8,7 +8,9 @@ pub enum ParseError {
     Version,
     #[error("Invalid command. Command must be one of: Local, Proxy.")]
     Command,
-    #[error("Invalid Address Family. Address Family must be one of: Unspecified, IPv4, IPv6, Unix.")]
+    #[error(
+        "Invalid Address Family. Address Family must be one of: Unspecified, IPv4, IPv6, Unix."
+    )]
     AddressFamily,
     #[error("Invalid protocol. Protocol must be one of: Unspecified, Stream, or Datagram.")]
     Protocol,

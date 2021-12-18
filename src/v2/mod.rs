@@ -2,13 +2,15 @@ mod error;
 mod model;
 
 pub use error::ParseError;
-pub use model::{Command, Header, Version};
+pub use model::{AddressFamily, Command, Header, Protocol, Version};
 
 const PROTOCOL_PREFIX: &[u8] = b"\r\n\r\n\0\r\nQUIT\n";
 const VERSION_COMMAND: usize = PROTOCOL_PREFIX.len();
 const ADDRESS_FAMILY_PROTOCOL: usize = VERSION_COMMAND + 1;
 const LENGTH: usize = ADDRESS_FAMILY_PROTOCOL + 1;
 const MINIMUM_LENGTH: usize = LENGTH + 2;
+const LEFT_MASK: u8 = 0xF0;
+const RIGH_MASK: u8 = 0xF0;
 
 impl<'a> TryFrom<&'a [u8]> for Header<'a> {
     type Error = ParseError;
@@ -22,22 +24,40 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
             return Err(ParseError::Prefix);
         }
 
-        let version = match input[VERSION_COMMAND] & 0xF0 {
+        let version = match input[VERSION_COMMAND] & LEFT_MASK {
             0x20 => Version::Two,
-            _ => return Err(ParseError::Version) 
+            _ => return Err(ParseError::Version),
         };
-        let command = match input[VERSION_COMMAND] & 0x0F {
+        let command = match input[VERSION_COMMAND] & RIGH_MASK {
             0x00 => Command::Local,
             0x01 => Command::Proxy,
-            _ => return Err(ParseError::Command)
+            _ => return Err(ParseError::Command),
         };
 
-        // (AddressFamily, Protocol), u16
-        let mut length = [0, 0];
-        let length = u16::from_be_bytes([0, 1]);
+        let address_family = match input[ADDRESS_FAMILY_PROTOCOL] & LEFT_MASK {
+            0x00 => AddressFamily::Unspecified,
+            0x10 => AddressFamily::IPv4,
+            0x20 => AddressFamily::IPv6,
+            0x30 => AddressFamily::Unix,
+            _ => return Err(ParseError::AddressFamily),
+        };
+        let protocol = match input[ADDRESS_FAMILY_PROTOCOL] & RIGH_MASK {
+            0x00 => Protocol::Unspecified,
+            0x01 => Protocol::Stream,
+            0x02 => Protocol::Datagram,
+            _ => return Err(ParseError::Protocol),
+        };
+
+        let length = u16::from_be_bytes([input[LENGTH], input[LENGTH + 1]]);
+        let header = &input[..std::cmp::min(input.len(), MINIMUM_LENGTH + length as usize)];
 
         Ok(Header {
-            header: input
+            header,
+            version,
+            command,
+            address_family,
+            protocol,
+            length,
         })
     }
 }
