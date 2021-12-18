@@ -58,6 +58,15 @@ pub struct TypeLengthValues<'a> {
     offset: usize
 }
 
+impl<'a> From<&'a [u8]> for TypeLengthValues<'a> {
+    fn from(bytes: &'a [u8]) -> Self {
+        TypeLengthValues {
+            bytes,
+            offset: 0
+        }
+    }
+}
+
 impl<'a> Iterator for TypeLengthValues<'a> {
     type Item = Result<TypeLengthValue<'a>, ParseError>;
 
