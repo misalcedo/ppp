@@ -45,37 +45,50 @@ impl<'a> Header<'a> {
     }
 
     pub fn tlvs(&self) -> Result<TypeLengthValues<'a>, ParseError> {
-        let mut current = self.additional_bytes();
-        while current.len() >= MINIMUM_TLV_LENGTH {
-            let length = u16::from_be_bytes([current[1], current[2]]);
-            let tlv_length = MINIMUM_TLV_LENGTH + length as usize;
-    
-            if current.len() < tlv_length {
-                return Err(ParseError::InvalidTLV(current[0], length));
-            }
-    
-            current = &current[tlv_length..];
-        }
-    
-        if current.len() != 0 {
-            return Err(ParseError::LeftoverTLVs(current.len()));
-        }
-    
         Ok(TypeLengthValues {
-            buffer: self.additional_bytes()
+            bytes: self.additional_bytes(),
+            offset: 0
         })
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct TypeLengthValues<'a> {
-    pub buffer: &'a [u8],
+    bytes: &'a [u8],
+    offset: usize
 }
 
-impl<'a> Default for TypeLengthValues<'a> {
-    fn default() -> Self {
-        TypeLengthValues { buffer: &[] }
-    }
+impl<'a> Iterator for TypeLengthValues<'a> {
+    type Item = Result<TypeLengthValue<'a>, ParseError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.offset >= self.bytes.len() {
+            return None;
+        }
+
+        let remaining = &self.bytes[self.offset..];
+
+        if remaining.len() < MINIMUM_TLV_LENGTH {
+            self.offset = self.bytes.len();
+            return Some(Err(ParseError::Leftovers(self.bytes.len())));
+        }
+
+        let tlv_type = remaining[0];
+        let length = u16::from_be_bytes([remaining[1], remaining[2]]);
+        let tlv_length = MINIMUM_TLV_LENGTH + length as usize;
+
+        if remaining.len() < tlv_length {
+            self.offset = self.bytes.len();
+            return Some(Err(ParseError::InvalidTLV(tlv_type, length)));
+        }
+
+        self.offset += tlv_length;
+
+        Some(Ok(TypeLengthValue {
+            kind: tlv_type,
+            value: &remaining[MINIMUM_TLV_LENGTH..tlv_length]
+        }))
+    } 
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -106,7 +119,8 @@ pub enum Protocol {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct TypeLengthValue<'a> {
-    tlv: &'a [u8],
+    kind: u8,
+    value: &'a [u8],
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

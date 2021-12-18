@@ -19,5 +19,5 @@ pub enum ParseError {
     #[error("Header is not long enough to contain enough TLV {0} with lengh {1}.")]
     InvalidTLV(u8, u16),
     #[error("Header contains leftover {0} bytes not accounted for by the address family or TLVs.")]
-    LeftoverTLVs(usize),
+    Leftovers(usize),
 }
