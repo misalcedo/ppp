@@ -1,9 +1,13 @@
 pub struct Header<'a> {
-    header: &'a [u8],
+    pub header: &'a [u8],
+}
+
+pub struct Tlvs<'a> {
+    buffer: &'a [u8]
 }
 
 pub enum Version {
-    Two = 2,
+    Two = 0x20,
 }
 
 pub enum Command {

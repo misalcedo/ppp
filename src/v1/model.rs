@@ -158,9 +158,9 @@ impl<'a> Header<'a> {
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Addresses {
+    Unknown,
     Tcp4(Tcp4),
     Tcp6(Tcp6),
-    Unknown,
 }
 
 impl Addresses {
