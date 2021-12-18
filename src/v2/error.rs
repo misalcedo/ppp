@@ -14,4 +14,6 @@ pub enum ParseError {
     AddressFamily,
     #[error("Invalid protocol. Protocol must be one of: Unspecified, Stream, or Datagram.")]
     Protocol,
+    #[error("Header does not contain the advertised length of the TLVs.")]
+    TLVs
 }

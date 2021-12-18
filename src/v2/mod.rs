@@ -49,7 +49,29 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
         };
 
         let length = u16::from_be_bytes([input[LENGTH], input[LENGTH + 1]]);
-        let header = &input[..std::cmp::min(input.len(), MINIMUM_LENGTH + length as usize)];
+        let full_length = MINIMUM_LENGTH + length as usize;
+
+        if input.len() < full_length {
+            return Err(ParseError::TLVs);
+        }
+
+        let header = &input[..full_length];
+        let tlvs = &input[MINIMUM_LENGTH..full_length];
+
+        let mut current = &tlvs[..];
+        while current.len() >= 3 { 
+            let full_length = (3 + u16::from_be_bytes([input[1], input[2]])) as usize;
+            
+            if current.len() < full_length {
+                return Err(ParseError::TLVs);
+            }
+            
+            current = &current[full_length..];
+        }
+
+        if current.len() != 0 {
+            return Err(ParseError::TLVs);
+        }
 
         Ok(Header {
             header,
