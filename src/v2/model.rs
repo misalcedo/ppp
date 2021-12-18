@@ -5,10 +5,11 @@ pub struct Header<'a> {
     pub address_family: AddressFamily,
     pub protocol: Protocol,
     pub length: u16,
+    pub tlvs: TypeLengthValues<'a>,
 }
 
-pub struct Tlvs<'a> {
-    buffer: &'a [u8],
+pub struct TypeLengthValues<'a> {
+    pub buffer: &'a [u8],
 }
 
 pub enum Version {
