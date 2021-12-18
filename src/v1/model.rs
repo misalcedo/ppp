@@ -234,15 +234,11 @@ impl<'a> fmt::Display for Header<'a> {
 
 impl fmt::Display for Addresses {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "PROXY ")?;
-
         match self {
-            Self::Unknown => write!(f, "UNKNOWN")?,
-            Self::Tcp4(a) => write!(f, "TCP4 {} {} {} {}", a.source_address, a.destination_address, a.source_port, a.destination_port)?,
-            Self::Tcp6(a) => write!(f, "TCP6 {} {} {} {}", a.source_address, a.destination_address, a.source_port, a.destination_port)?,
+            Self::Unknown => write!(f, "PROXY UNKNOWN\r\n"),
+            Self::Tcp4(a) => write!(f, "PROXY TCP4 {} {} {} {}\r\n", a.source_address, a.destination_address, a.source_port, a.destination_port),
+            Self::Tcp6(a) => write!(f, "PROXY TCP6 {} {} {} {}\r\n", a.source_address, a.destination_address, a.source_port, a.destination_port),
         }
-
-        write!(f, "\r\n")
     }
 }
 
