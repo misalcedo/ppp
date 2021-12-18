@@ -91,8 +91,10 @@ mod tests {
             protocol: Protocol::Stream,
             length: 12,
         };
+        let actual = Header::try_from(input.as_slice()).unwrap();
 
-        assert_eq!(Header::try_from(input.as_slice()), Ok(expected));
+        assert_eq!(actual, expected);
+        assert!(actual.tlvs().next().is_none());
     }
 
     #[test]
@@ -116,8 +118,10 @@ mod tests {
             protocol: Protocol::Unspecified,
             length: 12,
         };
+        let actual = Header::try_from(input.as_slice()).unwrap();
 
-        assert_eq!(Header::try_from(input.as_slice()), Ok(expected));
+        assert_eq!(actual, expected);
+        assert!(actual.tlvs().next().is_none());
     }
 
     #[test]
@@ -139,8 +143,10 @@ mod tests {
             protocol: Protocol::Stream,
             length: 8,
         };
+        let actual = Header::try_from(input.as_slice()).unwrap();
 
-        assert_eq!(Header::try_from(input.as_slice()), Ok(expected));
+        assert_eq!(actual, expected);
+        assert!(actual.tlvs().next().is_none());
     }
 
     #[test]
@@ -162,8 +168,10 @@ mod tests {
             protocol: Protocol::Unspecified,
             length: 8,
         };
+        let actual = Header::try_from(input.as_slice()).unwrap();
 
-        assert_eq!(Header::try_from(input.as_slice()), Ok(expected));
+        assert_eq!(actual, expected);
+        assert!(actual.tlvs().next().is_none());
     }
     /*
     #[test]
