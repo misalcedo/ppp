@@ -2,47 +2,10 @@ mod error;
 mod model;
 
 pub use error::ParseError;
-pub use model::{AddressFamily, Command, Header, Protocol, TypeLengthValues, Version};
+pub use model::{AddressFamily, Command, Header, Protocol, TypeLengthValues, Version, MINIMUM_LENGTH, PROTOCOL_PREFIX, VERSION_COMMAND, ADDRESS_FAMILY_PROTOCOL, LENGTH};
 
-const PROTOCOL_PREFIX: &[u8] = b"\r\n\r\n\0\r\nQUIT\n";
-const VERSION_COMMAND: usize = PROTOCOL_PREFIX.len();
-const ADDRESS_FAMILY_PROTOCOL: usize = VERSION_COMMAND + 1;
-const LENGTH: usize = ADDRESS_FAMILY_PROTOCOL + 1;
-const MINIMUM_LENGTH: usize = LENGTH + 2;
 const LEFT_MASK: u8 = 0xF0;
 const RIGH_MASK: u8 = 0x0F;
-
-fn new_tlvs<'a>(header: Header<'a>) -> Result<TypeLengthValues<'a>, ParseError> {
-    let address_bytes_to_skip = match header.address_family {
-        AddressFamily::IPv4 => 12,
-        AddressFamily::IPv6 => 36,
-        AddressFamily::Unix => 216,
-        AddressFamily::Unspecified => header.length()
-    };
-    
-    let full_length = MINIMUM_LENGTH + header.length();
-    let start = MINIMUM_LENGTH + std::cmp::min(address_bytes_to_skip, header.length());
-    
-    let mut current = &header.header[start..full_length];
-    while current.len() >= 3 {
-        let length = u16::from_be_bytes([current[1], current[2]]);
-        let tlv_length = (3 + length) as usize;
-
-        if current.len() < tlv_length {
-            return Err(ParseError::InvalidTLV(current[0], length));
-        }
-
-        current = &current[tlv_length..];
-    }
-
-    if current.len() != 0 {
-        return Err(ParseError::LeftoverTLVs(current.len()));
-    }
-
-    Ok(TypeLengthValues {
-        buffer: &header.header[start..full_length] 
-    })
-}
 
 impl<'a> TryFrom<&'a [u8]> for Header<'a> {
     type Error = ParseError;
@@ -84,7 +47,7 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
         let full_length = MINIMUM_LENGTH + length as usize;
 
         if input.len() < full_length {
-            return Err(ParseError::PartialTLVs(length, input.len() - MINIMUM_LENGTH));
+            return Err(ParseError::Partial(length, input.len() - MINIMUM_LENGTH));
         }
 
         let header = &input[..full_length];

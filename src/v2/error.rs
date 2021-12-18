@@ -14,8 +14,8 @@ pub enum ParseError {
     AddressFamily(u8),
     #[error("Invalid protocol {0:X}. Protocol must be one of: Unspecified, Stream, or Datagram.")]
     Protocol(u8),
-    #[error("Header does not contain the advertised length of the TLVs (contains {1} out of {0} bytes).")]
-    PartialTLVs(u16, usize),
+    #[error("Header does not contain the advertised length of the address information and TLVs (has {1} out of {0} bytes).")]
+    Partial(u16, usize),
     #[error("Header is not long enough to contain enough TLV {0} with lengh {1}.")]
     InvalidTLV(u8, u16),
     #[error("Header contains leftover {0} bytes not accounted for by the address family or TLVs.")]
