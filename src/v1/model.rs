@@ -13,13 +13,16 @@ pub const SEPARATOR: char = ' ';
 /// A text PROXY protocol header that borrows the input string.
 ///
 /// ## Examples
-/// ### From byte slice
+/// ### Worst Case (from bytes)
 /// ```rust
-/// use ppp::v1::{Addresses, Header};
+/// use ppp::v1::{Addresses, Header, UNKNOWN};
 ///
-/// let header = "PROXY UNKNOWN\r\n";
+/// let input = "PROXY UNKNOWN ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
+/// let header = Header::try_from(input.as_bytes()).unwrap();
 ///
-/// assert_eq!(Header::try_from(header.as_bytes()), Ok(Header::new(header, Addresses::Unknown)));
+/// assert_eq!(header, Header::new(input, Addresses::Unknown));
+/// assert_eq!(header.protocol(), UNKNOWN);
+/// assert_eq!(header.addresses_str(), "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535");
 /// ```
 ///
 /// ### UNKNOWN
@@ -31,7 +34,7 @@ pub const SEPARATOR: char = ' ';
 ///
 /// assert_eq!(header, Header::new("PROXY UNKNOWN\r\n", Addresses::Unknown));
 /// assert_eq!(header.protocol(), UNKNOWN);
-/// assert_eq!(header.addresses(), "");
+/// assert_eq!(header.addresses_str(), "");
 /// ```
 ///
 /// ### TCP4
@@ -44,7 +47,7 @@ pub const SEPARATOR: char = ' ';
 ///
 /// assert_eq!(header, Header::new(input, Addresses::new_tcp4(Ipv4Addr::new(127, 0, 1, 2), Ipv4Addr::new(192, 168, 1, 101), 80, 443)));
 /// assert_eq!(header.protocol(), TCP4);
-/// assert_eq!(header.addresses(), "127.0.1.2 192.168.1.101 80 443");
+/// assert_eq!(header.addresses_str(), "127.0.1.2 192.168.1.101 80 443");
 /// ```
 ///
 /// ### TCP6
@@ -68,7 +71,7 @@ pub const SEPARATOR: char = ' ';
 ///     )
 /// );
 /// assert_eq!(header.protocol(), TCP6);
-/// assert_eq!(header.addresses(), "1234:5678:90ab:cdef:fedc:ba09:8765:4321 4321:8765:ba09:fedc:cdef:90ab:5678:1234 443 65535");
+/// assert_eq!(header.addresses_str(), "1234:5678:90ab:cdef:fedc:ba09:8765:4321 4321:8765:ba09:fedc:cdef:90ab:5678:1234 443 65535");
 /// ```
 ///
 /// ### Invalid
@@ -91,15 +94,11 @@ impl<'a> Header<'a> {
 
     /// The protocol portion of this `Header`.
     pub fn protocol(&self) -> &str {
-        match self.addresses {
-            Addresses::Tcp4(..) => TCP4,
-            Addresses::Tcp6(..) => TCP6,
-            Addresses::Unknown => UNKNOWN,
-        }
+        self.addresses.protocol()
     }
 
     /// The source and destination addressses portion of this `Header`.
-    pub fn addresses(&self) -> &'a str {
+    pub fn addresses_str(&self) -> &'a str {
         let start = PROTOCOL_PREFIX.len() + SEPARATOR.len_utf8() + self.protocol().len();
         let end = self.header.len() - PROTOCOL_SUFFIX.len();
         let addresses = &self.header[start..end];
@@ -116,11 +115,26 @@ impl<'a> Header<'a> {
 /// Includes IP (v4 or v6) addresses and TCP ports.
 ///
 /// ## Examples
+/// ### Worst Case
+/// ```rust
+/// use ppp::v1::{Addresses, Header, UNKNOWN};
+///
+/// let header = "PROXY UNKNOWN ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
+/// let addresses = Addresses::Unknown;
+///
+/// assert_eq!(addresses, header.parse().unwrap());
+/// assert_ne!(addresses.to_string().as_str(), header);
+/// ```
+/// 
 /// ### UNKNOWN
 /// ```rust
 /// use ppp::v1::Addresses;
 ///
-/// assert_eq!(Ok(Addresses::Unknown), "PROXY UNKNOWN\r\n".parse());
+/// let header = "PROXY UNKNOWN\r\n";
+/// let addresses = Addresses::Unknown;
+/// 
+/// assert_eq!(addresses, header.parse().unwrap());
+/// assert_eq!(addresses.to_string().as_str(), header);
 /// ```
 ///
 /// ### TCP4
@@ -128,10 +142,11 @@ impl<'a> Header<'a> {
 /// use std::net::Ipv4Addr;
 /// use ppp::v1::Addresses;
 ///
-/// assert_eq!(
-///     Ok(Addresses::new_tcp4(Ipv4Addr::new(127, 0, 1, 2), Ipv4Addr::new(192, 168, 1, 101), 80, 443)),
-///     "PROXY TCP4 127.0.1.2 192.168.1.101 80 443\r\n".parse()
-/// );
+/// let header = "PROXY TCP4 127.0.1.2 192.168.1.101 80 443\r\n";
+/// let addresses = Addresses::new_tcp4(Ipv4Addr::new(127, 0, 1, 2), Ipv4Addr::new(192, 168, 1, 101), 80, 443);
+/// 
+/// assert_eq!(addresses, header.parse().unwrap());
+/// assert_eq!(addresses.to_string().as_str(), header);
 /// ```
 ///
 /// ### TCP6
@@ -139,15 +154,16 @@ impl<'a> Header<'a> {
 /// use std::net::Ipv6Addr;
 /// use ppp::v1::Addresses;
 ///
-/// assert_eq!(
-///     Ok(Addresses::new_tcp6(
-///         Ipv6Addr::from([0x1234, 0x5678, 0x90AB, 0xCDEF, 0xFEDC, 0xBA09, 0x8765, 0x4321]),
-///         Ipv6Addr::from([0x4321, 0x8765, 0xBA09, 0xFEDC, 0xCDEF, 0x90AB, 0x5678, 0x01234,]),
-///         443,
-///         65535
-///     )),
-///     "PROXY TCP6 1234:5678:90ab:cdef:fedc:ba09:8765:4321 4321:8765:ba09:fedc:cdef:90ab:5678:1234 443 65535\r\n".parse()
+/// let header = "PROXY TCP6 1234:5678:90ab:cdef:fedc:ba09:8765:4321 4321:8765:ba09:fedc:cdef:90ab:5678:1234 443 65535\r\n";
+/// let addresses = Addresses::new_tcp6(
+///     Ipv6Addr::from([0x1234, 0x5678, 0x90AB, 0xCDEF, 0xFEDC, 0xBA09, 0x8765, 0x4321]),
+///     Ipv6Addr::from([0x4321, 0x8765, 0xBA09, 0xFEDC, 0xCDEF, 0x90AB, 0x5678, 0x01234,]),
+///     443,
+///     65535
 /// );
+/// 
+/// assert_eq!(addresses, header.parse().unwrap());
+/// assert_eq!(addresses.to_string().as_str(), header);
 /// ```
 ///
 /// ### Invalid
@@ -193,6 +209,15 @@ impl Addresses {
             destination_port,
         })
     }
+
+    /// The protocol portion of this `Addresses`.
+    pub fn protocol(&self) -> &str {
+        match self {
+            Addresses::Tcp4(..) => TCP4,
+            Addresses::Tcp6(..) => TCP6,
+            Addresses::Unknown => UNKNOWN,
+        }
+    }
 }
 
 impl Default for Addresses {
@@ -204,6 +229,20 @@ impl Default for Addresses {
 impl<'a> fmt::Display for Header<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.header)
+    }
+}
+
+impl fmt::Display for Addresses {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "PROXY ")?;
+
+        match self {
+            Self::Unknown => write!(f, "UNKNOWN")?,
+            Self::Tcp4(a) => write!(f, "TCP4 {} {} {} {}", a.source_address, a.destination_address, a.source_port, a.destination_port)?,
+            Self::Tcp6(a) => write!(f, "TCP6 {} {} {} {}", a.source_address, a.destination_address, a.source_port, a.destination_port)?,
+        }
+
+        write!(f, "\r\n")
     }
 }
 
