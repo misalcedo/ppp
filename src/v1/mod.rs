@@ -5,8 +5,9 @@
 mod error;
 mod model;
 
+pub use crate::ip::{IPv4, IPv6};
 pub use error::{BinaryParseError, ParseError};
-pub use model::{Addresses, Header, Tcp4, Tcp6, TCP4, TCP6, UNKNOWN};
+pub use model::{Addresses, Header, TCP4, TCP6, UNKNOWN};
 use model::{PROTOCOL_PREFIX, PROTOCOL_SUFFIX, SEPARATOR};
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::str::{from_utf8, FromStr};
@@ -78,7 +79,7 @@ fn parse_header<'a>(header_stripped: &'a str, header: &'a str) -> Result<Header<
             let (source_address, destination_address, source_port, destination_port) =
                 parse_addresses::<Ipv4Addr, _>(&mut iterator)?;
 
-            Addresses::Tcp4(Tcp4 {
+            Addresses::Tcp4(IPv4 {
                 source_address,
                 source_port,
                 destination_address,
@@ -89,7 +90,7 @@ fn parse_header<'a>(header_stripped: &'a str, header: &'a str) -> Result<Header<
             let (source_address, destination_address, source_port, destination_port) =
                 parse_addresses::<Ipv6Addr, _>(&mut iterator)?;
 
-            Addresses::Tcp6(Tcp6 {
+            Addresses::Tcp6(IPv6 {
                 source_address,
                 source_port,
                 destination_address,

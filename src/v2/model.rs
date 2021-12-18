@@ -116,6 +116,18 @@ pub enum AddressFamily {
     Unix = 0x30,
 }
 
+pub enum Addresses {
+    Unspecified,
+    IPv4 {
+        source_add: u8,
+    },
+    IPv6,
+    Unix {
+        source: [u8; 108],
+        destination: [u8; 108],
+    },
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Protocol {
     Unspecified = 0,

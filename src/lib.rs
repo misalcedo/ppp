@@ -20,6 +20,8 @@ pub mod model;
 /// The error type used by the parsers.
 pub mod error;
 
+mod ip;
+
 pub mod v1;
 pub mod v2;
 

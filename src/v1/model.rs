@@ -1,3 +1,4 @@
+use crate::ip::{IPv4, IPv6};
 use std::fmt;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -175,8 +176,8 @@ impl<'a> Header<'a> {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Addresses {
     Unknown,
-    Tcp4(Tcp4),
-    Tcp6(Tcp6),
+    Tcp4(IPv4),
+    Tcp6(IPv6),
 }
 
 impl Addresses {
@@ -187,7 +188,7 @@ impl Addresses {
         source_port: u16,
         destination_port: u16,
     ) -> Self {
-        Addresses::Tcp4(Tcp4 {
+        Addresses::Tcp4(IPv4 {
             source_address,
             source_port,
             destination_address,
@@ -202,7 +203,7 @@ impl Addresses {
         source_port: u16,
         destination_port: u16,
     ) -> Self {
-        Addresses::Tcp6(Tcp6 {
+        Addresses::Tcp6(IPv6 {
             source_address,
             source_port,
             destination_address,
@@ -248,22 +249,4 @@ impl fmt::Display for Addresses {
             ),
         }
     }
-}
-
-/// The source and destination IPv4 addresses and TCP ports of a header.
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Tcp4 {
-    pub source_address: Ipv4Addr,
-    pub source_port: u16,
-    pub destination_address: Ipv4Addr,
-    pub destination_port: u16,
-}
-
-/// The source and destination IPv6 addresses and TCP ports of a header.
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Tcp6 {
-    pub source_address: Ipv6Addr,
-    pub source_port: u16,
-    pub destination_address: Ipv6Addr,
-    pub destination_port: u16,
 }
