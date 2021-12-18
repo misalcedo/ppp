@@ -22,10 +22,12 @@ const PARTS: usize = 6;
 fn parse_addresses<'a, T: FromStr<Err = AddrParseError>, I: Iterator<Item = &'a str>>(
     iterator: &mut I,
 ) -> Result<(T, T, u16, u16), ParseError> {
-    let source_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-    let destination_address = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-    let source_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
-    let destination_port = iterator.next().ok_or(ParseError::EmptyAddresses)?;
+    let source_address = iterator.next().ok_or(ParseError::MissingSourceAddress)?;
+    let destination_address = iterator
+        .next()
+        .ok_or(ParseError::MissingDestinationAddress)?;
+    let source_port = iterator.next().ok_or(ParseError::MissingSourcePort)?;
+    let destination_port = iterator.next().ok_or(ParseError::MissingDestinationPort)?;
 
     let source_address = source_address
         .parse::<T>()
@@ -59,19 +61,16 @@ fn parse_addresses<'a, T: FromStr<Err = AddrParseError>, I: Iterator<Item = &'a 
 }
 
 /// Parses a text PROXY protocol header.
-/// The given string is expected to only include the header.
-fn parse_header<'a>(header: &'a str) -> Result<Header<'a>, ParseError> {
+/// The given string is expected to only include the header and to end in \r\n.
+fn parse_header<'a>(header_stripped: &'a str, header: &'a str) -> Result<Header<'a>, ParseError> {
     if header.len() > MAX_LENGTH {
         return Err(ParseError::HeaderTooLong);
     }
 
-    let mut iterator = header
-        .strip_suffix(PROTOCOL_SUFFIX)
-        .ok_or(ParseError::MissingNewLine)?
-        .splitn(PARTS, SEPARATOR);
+    let mut iterator = header_stripped.splitn(PARTS, SEPARATOR);
 
     if Some(PROTOCOL_PREFIX) != iterator.next() {
-        return Err(ParseError::MissingPrefix);
+        return Err(ParseError::InvalidPrefix);
     }
 
     let addresses = match iterator.next() {
@@ -117,12 +116,16 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
     type Error = ParseError;
 
     fn try_from(input: &'a str) -> Result<Self, Self::Error> {
-        let end = input
-            .find(PROTOCOL_SUFFIX)
-            .ok_or(ParseError::MissingNewLine)?;
+        let end = input.find(PROTOCOL_SUFFIX).ok_or_else(|| {
+            if input.len() >= MAX_LENGTH {
+                ParseError::HeaderTooLong
+            } else {
+                ParseError::MissingNewLine
+            }
+        })?;
         let length = end + PROTOCOL_SUFFIX.len();
 
-        parse_header(&input[..length])
+        parse_header(&input[..end], &input[..length])
     }
 }
 
@@ -133,13 +136,19 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
         let end = input
             .windows(PROTOCOL_SUFFIX.len())
             .position(|window| window == PROTOCOL_SUFFIX.as_bytes())
-            .ok_or(ParseError::MissingNewLine)
+            .ok_or_else(|| {
+                if input.len() >= MAX_LENGTH {
+                    ParseError::HeaderTooLong
+                } else {
+                    ParseError::MissingNewLine
+                }
+            })
             .map_err(BinaryParseError::Parse)?;
 
         let length = end + PROTOCOL_SUFFIX.len();
         let header = from_utf8(&input[..length])?;
 
-        parse_header(header).map_err(BinaryParseError::Parse)
+        parse_header(&header[..end], header).map_err(BinaryParseError::Parse)
     }
 }
 
@@ -166,26 +175,6 @@ mod tests {
     }
 
     #[test]
-    fn bytes_missing_newline() {
-        let text = b"Hello \xF0\x90\x80World";
-
-        assert_eq!(
-            Header::try_from(&text[..]).unwrap_err(),
-            BinaryParseError::Parse(ParseError::MissingNewLine)
-        );
-    }
-
-    #[test]
-    fn binary_exact_tcp4() {
-        let ip = "255.255.255.255".parse().unwrap();
-        let port = 65535;
-        let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n";
-        let expected = Header::new(text, Addresses::new_tcp4(ip, ip, port, port));
-
-        assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
-    }
-
-    #[test]
     fn exact_tcp4() {
         let ip = "255.255.255.255".parse().unwrap();
         let port = 65535;
@@ -193,6 +182,7 @@ mod tests {
         let expected = Header::new(text, Addresses::new_tcp4(ip, ip, port, port));
 
         assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
     #[test]
@@ -206,6 +196,7 @@ mod tests {
         );
 
         assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
     #[test]
@@ -216,6 +207,10 @@ mod tests {
             Header::try_from(text).unwrap_err(),
             ParseError::MissingNewLine
         );
+        assert_eq!(
+            Header::try_from(text.as_bytes()).unwrap_err(),
+            ParseError::MissingNewLine.into()
+        );
     }
 
     #[test]
@@ -225,6 +220,10 @@ mod tests {
         assert_eq!(
             Header::try_from(text).unwrap_err(),
             ParseError::MissingProtocol
+        );
+        assert_eq!(
+            Header::try_from(text.as_bytes()).unwrap_err(),
+            ParseError::MissingProtocol.into()
         );
     }
 
@@ -238,6 +237,10 @@ mod tests {
                 "".parse::<Ipv4Addr>().unwrap_err()
             ))
         );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidDestinationAddress("".parse::<Ipv4Addr>().unwrap_err()).into())
+        );
     }
 
     #[test]
@@ -250,6 +253,10 @@ mod tests {
                 "".parse::<Ipv4Addr>().unwrap_err()
             ))
         );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidSourceAddress("".parse::<Ipv4Addr>().unwrap_err()).into())
+        );
     }
 
     #[test]
@@ -258,6 +265,10 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
+            Ok(Header::new("PROXY UNKNOWN\r\n", Addresses::default()))
+        );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
             Ok(Header::new("PROXY UNKNOWN\r\n", Addresses::default()))
         );
     }
@@ -270,7 +281,13 @@ mod tests {
         let expected = Header::new("PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n", Addresses::new_tcp6(ip, ip, port, port));
 
         assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
+    }
 
+    #[test]
+    fn valid_tcp6_short() {
+        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let port = 65535;
         let short_ip = "::1".parse().unwrap();
         let text = "PROXY TCP6 ::1 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\nHi!";
         let expected = Header::new(
@@ -279,6 +296,7 @@ mod tests {
         );
 
         assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
     #[test]
@@ -290,6 +308,10 @@ mod tests {
             Err(ParseError::InvalidSourceAddress(
                 "".parse::<Ipv6Addr>().unwrap_err()
             ))
+        );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidSourceAddress("".parse::<Ipv6Addr>().unwrap_err()).into())
         );
     }
 
@@ -303,6 +325,10 @@ mod tests {
                 "".parse::<Ipv4Addr>().unwrap_err()
             ))
         );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidDestinationAddress("".parse::<Ipv4Addr>().unwrap_err()).into())
+        );
     }
 
     #[test]
@@ -314,6 +340,7 @@ mod tests {
         let expected = Header::new(text, Addresses::new_tcp6(short_ip, ip, port, port));
 
         assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
     #[test]
@@ -325,6 +352,7 @@ mod tests {
         let expected = Header::new(text, Addresses::new_tcp6(short_ip, ip, port, port));
 
         assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
     #[test]
@@ -336,6 +364,7 @@ mod tests {
         let expected = Header::new(text, Addresses::new_tcp6(short_ip, ip, port, port));
 
         assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
     #[test]
@@ -347,6 +376,7 @@ mod tests {
         let expected = Header::new(text, Addresses::new_tcp6(short_ip, ip, port, port));
 
         assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
     #[test]
@@ -359,6 +389,10 @@ mod tests {
                 "".parse::<Ipv6Addr>().unwrap_err()
             ))
         );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidSourceAddress("".parse::<Ipv6Addr>().unwrap_err()).into())
+        );
     }
 
     #[test]
@@ -367,6 +401,7 @@ mod tests {
         let expected = Header::new(text, Addresses::Unknown);
 
         assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
     #[test]
@@ -377,6 +412,10 @@ mod tests {
             Header::try_from(text),
             Err(ParseError::InvalidSourcePort(None))
         );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidSourcePort(None).into())
+        );
     }
 
     #[test]
@@ -386,6 +425,10 @@ mod tests {
         assert_eq!(
             Header::try_from(text),
             Err(ParseError::InvalidDestinationPort(None))
+        );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidDestinationPort(None).into())
         );
     }
 
@@ -399,6 +442,10 @@ mod tests {
                 "65536".parse::<u16>().unwrap_err()
             )))
         );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidSourcePort(Some("65536".parse::<u16>().unwrap_err())).into())
+        );
     }
 
     #[test]
@@ -411,13 +458,24 @@ mod tests {
                 "65536".parse::<u16>().unwrap_err()
             )))
         );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(
+                ParseError::InvalidDestinationPort(Some("65536".parse::<u16>().unwrap_err()))
+                    .into()
+            )
+        );
     }
 
     #[test]
     fn parse_lowercase_proxy() {
         let text = "proxy UNKNOWN\r\n";
 
-        assert_eq!(Header::try_from(text), Err(ParseError::MissingPrefix));
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidPrefix));
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidPrefix.into())
+        );
     }
 
     #[test]
@@ -425,6 +483,10 @@ mod tests {
         let text = "PROXY tcp4\r\n";
 
         assert_eq!(Header::try_from(text), Err(ParseError::InvalidProtocol));
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidProtocol.into())
+        );
     }
 
     #[test]
@@ -432,6 +494,10 @@ mod tests {
         let text = "PROXY UNKNOWN ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535  \r\n";
 
         assert_eq!(Header::try_from(text), Err(ParseError::HeaderTooLong));
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::HeaderTooLong.into())
+        );
     }
 
     #[test]
@@ -439,6 +505,10 @@ mod tests {
         let text = "PROXY  TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n";
 
         assert_eq!(Header::try_from(text), Err(ParseError::MissingProtocol));
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::MissingProtocol.into())
+        );
     }
 
     #[test]
@@ -447,9 +517,11 @@ mod tests {
 
         assert_eq!(
             Header::try_from(text),
-            Err(ParseError::InvalidSourceAddress(
-                "".parse::<Ipv4Addr>().unwrap_err()
-            ))
+            Err(ParseError::InvalidSourceAddress("".parse::<Ipv4Addr>().unwrap_err()).into())
+        );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidSourceAddress("".parse::<Ipv4Addr>().unwrap_err()).into())
         );
     }
 
@@ -463,6 +535,10 @@ mod tests {
                 "".parse::<Ipv4Addr>().unwrap_err()
             ))
         );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidDestinationAddress("".parse::<Ipv4Addr>().unwrap_err()).into())
+        );
     }
 
     #[test]
@@ -474,6 +550,10 @@ mod tests {
             Err(ParseError::InvalidSourcePort(Some(
                 "".parse::<u16>().unwrap_err()
             )))
+        );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidSourcePort(Some("".parse::<u16>().unwrap_err())).into())
         );
     }
 
@@ -487,6 +567,13 @@ mod tests {
                 " 65535".parse::<u16>().unwrap_err()
             )))
         );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(
+                ParseError::InvalidDestinationPort(Some(" 65535".parse::<u16>().unwrap_err()))
+                    .into()
+            )
+        );
     }
 
     #[test]
@@ -498,6 +585,24 @@ mod tests {
             Err(ParseError::InvalidDestinationPort(Some(
                 "65535 ".parse::<u16>().unwrap_err()
             )))
+        );
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(
+                ParseError::InvalidDestinationPort(Some("65535 ".parse::<u16>().unwrap_err()))
+                    .into()
+            )
+        );
+    }
+
+    #[test]
+    fn parse_partial_prefix() {
+        let text = "PROX\r\n";
+
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidPrefix));
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidPrefix.into())
         );
     }
 }

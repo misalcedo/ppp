@@ -55,6 +55,8 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
 
         let header = &input[..full_length];
 
+        // TODO: Parse addresses.
+
         Ok(Header {
             header,
             version,

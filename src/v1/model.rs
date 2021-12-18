@@ -80,7 +80,7 @@ pub const SEPARATOR: char = ' ';
 ///
 /// assert_eq!(Err(ParseError::InvalidProtocol), "PROXY tcp4\r\n".parse::<Addresses>());
 /// ```
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Header<'a> {
     pub header: &'a str,
     pub addresses: Addresses,
@@ -125,14 +125,14 @@ impl<'a> Header<'a> {
 /// assert_eq!(addresses, header.parse().unwrap());
 /// assert_ne!(addresses.to_string().as_str(), header);
 /// ```
-/// 
+///
 /// ### UNKNOWN
 /// ```rust
 /// use ppp::v1::Addresses;
 ///
 /// let header = "PROXY UNKNOWN\r\n";
 /// let addresses = Addresses::Unknown;
-/// 
+///
 /// assert_eq!(addresses, header.parse().unwrap());
 /// assert_eq!(addresses.to_string().as_str(), header);
 /// ```
@@ -144,7 +144,7 @@ impl<'a> Header<'a> {
 ///
 /// let header = "PROXY TCP4 127.0.1.2 192.168.1.101 80 443\r\n";
 /// let addresses = Addresses::new_tcp4(Ipv4Addr::new(127, 0, 1, 2), Ipv4Addr::new(192, 168, 1, 101), 80, 443);
-/// 
+///
 /// assert_eq!(addresses, header.parse().unwrap());
 /// assert_eq!(addresses.to_string().as_str(), header);
 /// ```
@@ -161,7 +161,7 @@ impl<'a> Header<'a> {
 ///     443,
 ///     65535
 /// );
-/// 
+///
 /// assert_eq!(addresses, header.parse().unwrap());
 /// assert_eq!(addresses.to_string().as_str(), header);
 /// ```
@@ -236,8 +236,16 @@ impl fmt::Display for Addresses {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Unknown => write!(f, "PROXY UNKNOWN\r\n"),
-            Self::Tcp4(a) => write!(f, "PROXY TCP4 {} {} {} {}\r\n", a.source_address, a.destination_address, a.source_port, a.destination_port),
-            Self::Tcp6(a) => write!(f, "PROXY TCP6 {} {} {} {}\r\n", a.source_address, a.destination_address, a.source_port, a.destination_port),
+            Self::Tcp4(a) => write!(
+                f,
+                "PROXY TCP4 {} {} {} {}\r\n",
+                a.source_address, a.destination_address, a.source_port, a.destination_port
+            ),
+            Self::Tcp6(a) => write!(
+                f,
+                "PROXY TCP6 {} {} {} {}\r\n",
+                a.source_address, a.destination_address, a.source_port, a.destination_port
+            ),
         }
     }
 }
