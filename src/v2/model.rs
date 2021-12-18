@@ -6,7 +6,12 @@ pub struct Header<'a> {
     pub address_family: AddressFamily,
     pub protocol: Protocol,
     pub length: u16,
-    pub tlvs: TypeLengthValues<'a>,
+}
+
+impl<'a> Header<'a> {
+    pub fn length(&self) -> usize {
+        self.length as usize
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

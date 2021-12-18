@@ -12,6 +12,38 @@ const MINIMUM_LENGTH: usize = LENGTH + 2;
 const LEFT_MASK: u8 = 0xF0;
 const RIGH_MASK: u8 = 0x0F;
 
+fn new_tlvs<'a>(header: Header<'a>) -> Result<TypeLengthValues<'a>, ParseError> {
+    let address_bytes_to_skip = match header.address_family {
+        AddressFamily::IPv4 => 12,
+        AddressFamily::IPv6 => 36,
+        AddressFamily::Unix => 216,
+        AddressFamily::Unspecified => header.length()
+    };
+    
+    let full_length = MINIMUM_LENGTH + header.length();
+    let start = MINIMUM_LENGTH + std::cmp::min(address_bytes_to_skip, header.length());
+    
+    let mut current = &header.header[start..full_length];
+    while current.len() >= 3 {
+        let length = u16::from_be_bytes([current[1], current[2]]);
+        let tlv_length = (3 + length) as usize;
+
+        if current.len() < tlv_length {
+            return Err(ParseError::InvalidTLV(current[0], length));
+        }
+
+        current = &current[tlv_length..];
+    }
+
+    if current.len() != 0 {
+        return Err(ParseError::LeftoverTLVs(current.len()));
+    }
+
+    Ok(TypeLengthValues {
+        buffer: &header.header[start..full_length] 
+    })
+}
+
 impl<'a> TryFrom<&'a [u8]> for Header<'a> {
     type Error = ParseError;
 
@@ -56,32 +88,6 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
         }
 
         let header = &input[..full_length];
-        let address_bytes_to_skip = match address_family {
-            AddressFamily::IPv4 => 12,
-            AddressFamily::IPv6 => 36,
-            AddressFamily::Unix => 216,
-            AddressFamily::Unspecified => length as usize
-        };
-
-        let start = MINIMUM_LENGTH + std::cmp::min(address_bytes_to_skip, length as usize);
-        let mut current = &input[start..full_length];
-        while current.len() >= 3 {
-            let full_length = (3 + u16::from_be_bytes([input[1], input[2]])) as usize;
-
-            if current.len() < full_length {
-                return Err(ParseError::InvalidTLV(current[0], length));
-            }
-
-            current = &current[full_length..];
-        }
-
-        if current.len() != 0 {
-            return Err(ParseError::LeftoverTLVs(current.len()));
-        }
-
-        let tlvs = TypeLengthValues {
-            buffer: &input[start..full_length],
-        };
 
         Ok(Header {
             header,
@@ -90,7 +96,6 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
             address_family,
             protocol,
             length,
-            tlvs,
         })
     }
 }
@@ -119,7 +124,6 @@ mod tests {
             address_family: AddressFamily::IPv4,
             protocol: Protocol::Stream,
             length: 12,
-            tlvs: TypeLengthValues::default(),
         };
 
         assert_eq!(Header::try_from(input.as_slice()), Ok(expected));
@@ -144,8 +148,7 @@ mod tests {
             command: Command::Proxy,
             address_family: AddressFamily::Unspecified,
             protocol: Protocol::Unspecified,
-            length: 12,
-            tlvs: TypeLengthValues::default(),
+            length: 12
         };
 
         assert_eq!(Header::try_from(input.as_slice()), Ok(expected));
@@ -169,7 +172,6 @@ mod tests {
             address_family: AddressFamily::Unspecified,
             protocol: Protocol::Stream,
             length: 8,
-            tlvs: TypeLengthValues::default(),
         };
 
         assert_eq!(Header::try_from(input.as_slice()), Ok(expected));
@@ -193,7 +195,6 @@ mod tests {
             address_family: AddressFamily::IPv4,
             protocol: Protocol::Unspecified,
             length: 8,
-            tlvs: TypeLengthValues::default(),
         };
 
         assert_eq!(Header::try_from(input.as_slice()), Ok(expected));
