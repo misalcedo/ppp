@@ -1,3 +1,4 @@
+use crate::ip::{IPv4, IPv6};
 use crate::v2::error::ParseError;
 
 pub const PROTOCOL_PREFIX: &[u8] = b"\r\n\r\n\0\r\nQUIT\n";
@@ -116,16 +117,18 @@ pub enum AddressFamily {
     Unix = 0x30,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Addresses {
     Unspecified,
-    IPv4 {
-        source_add: u8,
-    },
-    IPv6,
-    Unix {
-        source: [u8; 108],
-        destination: [u8; 108],
-    },
+    IPv4(IPv4),
+    IPv6(IPv6),
+    Unix(Unix),
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Unix {
+    source: [u8; 108],
+    destination: [u8; 108],
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
