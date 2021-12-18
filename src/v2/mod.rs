@@ -2,7 +2,10 @@ mod error;
 mod model;
 
 pub use error::ParseError;
-pub use model::{AddressFamily, Command, Header, Protocol, TypeLengthValues, Version, MINIMUM_LENGTH, PROTOCOL_PREFIX, VERSION_COMMAND, ADDRESS_FAMILY_PROTOCOL, LENGTH};
+pub use model::{
+    AddressFamily, Command, Header, Protocol, TypeLengthValues, Version, ADDRESS_FAMILY_PROTOCOL,
+    LENGTH, MINIMUM_LENGTH, PROTOCOL_PREFIX, VERSION_COMMAND,
+};
 
 const LEFT_MASK: u8 = 0xF0;
 const RIGH_MASK: u8 = 0x0F;
@@ -111,7 +114,7 @@ mod tests {
             command: Command::Proxy,
             address_family: AddressFamily::Unspecified,
             protocol: Protocol::Unspecified,
-            length: 12
+            length: 12,
         };
 
         assert_eq!(Header::try_from(input.as_slice()), Ok(expected));

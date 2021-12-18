@@ -52,9 +52,13 @@ fn benchmarks(c: &mut Criterion) {
     ];
 
     for (id, header) in headers {
-        group.bench_with_input(BenchmarkId::new("v1::Header::to_string", id), &header, |b, h| {
-            b.iter(|| h.to_string());
-        });
+        group.bench_with_input(
+            BenchmarkId::new("v1::Header::to_string", id),
+            &header,
+            |b, h| {
+                b.iter(|| h.to_string());
+            },
+        );
     }
 
     group.finish();

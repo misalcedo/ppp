@@ -30,9 +30,9 @@ impl<'a> Header<'a> {
             AddressFamily::IPv4 => IPV4_ADDRESSES_BYTES,
             AddressFamily::IPv6 => IPV6_ADDRESSES_BYTES,
             AddressFamily::Unix => UNIX_ADDRESSES_BYTES,
-            AddressFamily::Unspecified => self.length()
+            AddressFamily::Unspecified => self.length(),
         };
-        
+
         MINIMUM_LENGTH + std::cmp::min(address_bytes, self.length())
     }
 
@@ -47,7 +47,7 @@ impl<'a> Header<'a> {
     pub fn tlvs(&self) -> Result<TypeLengthValues<'a>, ParseError> {
         Ok(TypeLengthValues {
             bytes: self.additional_bytes(),
-            offset: 0
+            offset: 0,
         })
     }
 }
@@ -55,15 +55,12 @@ impl<'a> Header<'a> {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct TypeLengthValues<'a> {
     bytes: &'a [u8],
-    offset: usize
+    offset: usize,
 }
 
 impl<'a> From<&'a [u8]> for TypeLengthValues<'a> {
     fn from(bytes: &'a [u8]) -> Self {
-        TypeLengthValues {
-            bytes,
-            offset: 0
-        }
+        TypeLengthValues { bytes, offset: 0 }
     }
 }
 
@@ -95,9 +92,9 @@ impl<'a> Iterator for TypeLengthValues<'a> {
 
         Some(Ok(TypeLengthValue {
             kind: tlv_type,
-            value: &remaining[MINIMUM_TLV_LENGTH..tlv_length]
+            value: &remaining[MINIMUM_TLV_LENGTH..tlv_length],
         }))
-    } 
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
