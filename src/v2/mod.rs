@@ -3,7 +3,7 @@ mod model;
 
 pub use error::ParseError;
 pub use model::{
-    AddressFamily, Command, Header, Protocol, TypeLengthValues, Version, ADDRESS_FAMILY_PROTOCOL,
+    Addresses, AddressFamily, Command, Header, Protocol, TypeLengthValues, Version, ADDRESS_FAMILY_PROTOCOL,
     LENGTH, MINIMUM_LENGTH, PROTOCOL_PREFIX, VERSION_COMMAND,
 };
 
@@ -60,13 +60,6 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
         }
 
         let header = &input[..full_length];
-
-        let addresses = match address_family {
-            AddressFamily::IPv4 => {}
-            AddressFamily::IPv6 => (),
-            AddressFamily::Unix => (),
-            AddressFamily::Unspecified => (),
-        };
 
         Ok(Header {
             header,
