@@ -227,6 +227,18 @@ impl Default for Addresses {
     }
 }
 
+impl From<IPv4> for Addresses {
+    fn from(addresses: IPv4) -> Self {
+        Addresses::Tcp4(addresses)
+    }
+}
+
+impl From<IPv6> for Addresses {
+    fn from(addresses: IPv6) -> Self {
+        Addresses::Tcp6(addresses)
+    }
+}
+
 impl<'a> fmt::Display for Header<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.header)

@@ -1,6 +1,5 @@
 use crate::ip::{IPv4, IPv6};
 use crate::v2::error::ParseError;
-use std::net::{Ipv4Addr, Ipv6Addr};
 
 pub const PROTOCOL_PREFIX: &[u8] = b"\r\n\r\n\0\r\nQUIT\n";
 pub const VERSION_COMMAND: usize = PROTOCOL_PREFIX.len();
@@ -20,6 +19,7 @@ pub struct Header<'a> {
     pub address_family: AddressFamily,
     pub protocol: Protocol,
     pub length: u16,
+    pub addresses: Addresses
 }
 
 impl<'a> Header<'a> {
@@ -36,58 +36,6 @@ impl<'a> Header<'a> {
 
     pub fn address_bytes(&self) -> &'a [u8] {
         &self.header[MINIMUM_LENGTH..self.address_bytes_end()]
-    }
-
-    pub fn addresses(&self) -> Result<Addresses, ParseError> {
-        let bytes = self.address_bytes();
-
-        match self.address_family {
-            AddressFamily::Unspecified => Ok(Addresses::Unspecified),
-            AddressFamily::IPv4 => {
-                let source_address = Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3]);
-                let destination_address = Ipv4Addr::new(bytes[4], bytes[5], bytes[6], bytes[7]);
-                let source_port = u16::from_be_bytes([bytes[8], bytes[9]]);
-                let destination_port = u16::from_be_bytes([bytes[10], bytes[11]]);
-
-                Ok(Addresses::IPv4(IPv4 {
-                    source_address,
-                    destination_address,
-                    source_port,
-                    destination_port
-                }))
-            },
-            AddressFamily::IPv6 => {
-                let mut address = [0; 16];
-
-                address[..].copy_from_slice(&bytes[..16]);
-                let source_address = Ipv6Addr::from(address);
-
-                address[..].copy_from_slice(&bytes[16..32]);
-                let destination_address = Ipv6Addr::from(address);
-
-                let source_port = u16::from_be_bytes([bytes[32], bytes[33]]);
-                let destination_port = u16::from_be_bytes([bytes[34], bytes[35]]);
-
-                Ok(Addresses::IPv6(IPv6 {
-                    source_address,
-                    destination_address,
-                    source_port,
-                    destination_port
-                }))
-            },
-            AddressFamily::Unix => {
-                let mut source = [0; 108];
-                let mut destination = [0; 108];
-
-                source[..].copy_from_slice(&bytes[..108]);
-                destination[..].copy_from_slice(&bytes[108..]);
-
-                Ok(Addresses::Unix(Unix {
-                    source,
-                    destination
-                }))
-            },
-        }        
     }
 
     pub fn additional_bytes(&self) -> &'a [u8] {
@@ -185,10 +133,28 @@ pub enum Addresses {
     Unix(Unix),
 }
 
+impl From<IPv4> for Addresses {
+    fn from(addresses: IPv4) -> Self {
+        Addresses::IPv4(addresses)
+    }
+}
+
+impl From<IPv6> for Addresses {
+    fn from(addresses: IPv6) -> Self {
+        Addresses::IPv6(addresses)
+    }
+}
+
+impl From<Unix> for Addresses {
+    fn from(addresses: Unix) -> Self {
+        Addresses::Unix(addresses)
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Unix {
-    source: [u8; 108],
-    destination: [u8; 108],
+    pub source: [u8; 108],
+    pub destination: [u8; 108],
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

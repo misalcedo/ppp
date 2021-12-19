@@ -2,13 +2,65 @@ mod error;
 mod model;
 
 pub use error::ParseError;
+use crate::ip::{IPv4, IPv6};
 pub use model::{
-    Addresses, AddressFamily, Command, Header, Protocol, TypeLengthValues, Version, ADDRESS_FAMILY_PROTOCOL,
+    Addresses, AddressFamily, Command, Header, Protocol, TypeLengthValues, Unix, Version, ADDRESS_FAMILY_PROTOCOL,
     LENGTH, MINIMUM_LENGTH, PROTOCOL_PREFIX, VERSION_COMMAND,
 };
+use std::net::{Ipv4Addr, Ipv6Addr};
 
 const LEFT_MASK: u8 = 0xF0;
 const RIGH_MASK: u8 = 0x0F;
+
+fn parse_addresses(address_family: AddressFamily, bytes: &[u8]) -> Addresses {
+    match address_family {
+        AddressFamily::Unspecified => Addresses::Unspecified,
+        AddressFamily::IPv4 => {
+            let source_address = Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3]);
+            let destination_address = Ipv4Addr::new(bytes[4], bytes[5], bytes[6], bytes[7]);
+            let source_port = u16::from_be_bytes([bytes[8], bytes[9]]);
+            let destination_port = u16::from_be_bytes([bytes[10], bytes[11]]);
+
+            Addresses::IPv4(IPv4 {
+                source_address,
+                destination_address,
+                source_port,
+                destination_port
+            })
+        },
+        AddressFamily::IPv6 => {
+            let mut address = [0; 16];
+
+            address[..].copy_from_slice(&bytes[..16]);
+            let source_address = Ipv6Addr::from(address);
+
+            address[..].copy_from_slice(&bytes[16..32]);
+            let destination_address = Ipv6Addr::from(address);
+
+            let source_port = u16::from_be_bytes([bytes[32], bytes[33]]);
+            let destination_port = u16::from_be_bytes([bytes[34], bytes[35]]);
+
+            Addresses::IPv6(IPv6 {
+                source_address,
+                destination_address,
+                source_port,
+                destination_port
+            })
+        },
+        AddressFamily::Unix => {
+            let mut source = [0; 108];
+            let mut destination = [0; 108];
+
+            source[..].copy_from_slice(&bytes[..108]);
+            destination[..].copy_from_slice(&bytes[108..]);
+
+            Addresses::Unix(Unix {
+                source,
+                destination
+            })
+        },
+    }
+}
 
 impl<'a> TryFrom<&'a [u8]> for Header<'a> {
     type Error = ParseError;
@@ -60,6 +112,7 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
         }
 
         let header = &input[..full_length];
+        let addresses = parse_addresses(address_family, &header[MINIMUM_LENGTH..]);
 
         Ok(Header {
             header,
@@ -68,6 +121,7 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
             address_family,
             protocol,
             length,
+            addresses
         })
     }
 }
@@ -75,6 +129,7 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ip::{IPv4, IPv6};
 
     #[test]
     fn no_tlvs() {
@@ -96,6 +151,7 @@ mod tests {
             address_family: AddressFamily::IPv4,
             protocol: Protocol::Stream,
             length: 12,
+            addresses: Addresses::IPv4(IPv4::new([127, 0, 0, 1], [127, 0, 0, 2], 80, 443))
         };
         let actual = Header::try_from(input.as_slice()).unwrap();
 
@@ -123,6 +179,7 @@ mod tests {
             address_family: AddressFamily::Unspecified,
             protocol: Protocol::Unspecified,
             length: 12,
+            addresses: Addresses::Unspecified
         };
         let actual = Header::try_from(input.as_slice()).unwrap();
 
@@ -148,6 +205,7 @@ mod tests {
             address_family: AddressFamily::Unspecified,
             protocol: Protocol::Stream,
             length: 8,
+            addresses: Addresses::Unspecified
         };
         let actual = Header::try_from(input.as_slice()).unwrap();
 
@@ -242,7 +300,6 @@ mod tests {
         assert_eq!(actual, ParseError::Protocol(0x07));
     }
 
-    /*
     #[test]
     fn proxy_with_extra() {
         let mut input: Vec<u8> = Vec::with_capacity(PROTOCOL_PREFIX.len());
@@ -257,21 +314,22 @@ mod tests {
         input.extend(&[1, 187]);
         input.extend(&[42]);
 
-        assert_eq!(
-            Header::try_from(&input[..]),
-            Ok((
-                &[42][..],
-                Header::new(
-                    Version::Two,
-                    Command::Proxy,
-                    Protocol::Stream,
-                    vec![],
-                    ([127, 0, 0, 1], [127, 0, 0, 2], 80, 443).into(),
-                )
-            ))
-        );
+        let expected = Header {
+            header: &input[..input.len() - 1],
+            version: Version::Two,
+            command: Command::Proxy,
+            address_family: AddressFamily::IPv4,
+            protocol: Protocol::Stream,
+            length: 12,
+            addresses: Addresses::IPv4(IPv4::new([127, 0, 0, 1], [127, 0, 0, 2], 80, 443))
+        };
+        let actual = Header::try_from(input.as_slice()).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(actual.tlvs().next().is_none());
     }
 
+    /*
     #[test]
     fn with_tlvs() {
         let mut input: Vec<u8> = Vec::with_capacity(PROTOCOL_PREFIX.len());
