@@ -26,7 +26,7 @@ impl<'a> Header<'a> {
     }
 
     pub fn address_family(&self) -> AddressFamily {
-        (&self.addresses).into()
+        self.addresses.address_family()
     }
 
     fn address_bytes_end(&self) -> usize {
@@ -116,17 +116,6 @@ pub enum AddressFamily {
     Unix = 0x30,
 }
 
-impl From<&Addresses> for AddressFamily {
-    fn from(addresses: &Addresses) -> Self {
-        match addresses {
-            Addresses::Unspecified => AddressFamily::Unspecified,
-            Addresses::IPv4(..) => AddressFamily::IPv4,
-            Addresses::IPv6(..) => AddressFamily::IPv6,
-            Addresses::Unix(..) => AddressFamily::Unix,
-        }
-    }
-}
-
 impl AddressFamily {
     pub fn byte_length(&self) -> Option<usize> {
         match self {
@@ -161,6 +150,17 @@ impl From<IPv6> for Addresses {
 impl From<Unix> for Addresses {
     fn from(addresses: Unix) -> Self {
         Addresses::Unix(addresses)
+    }
+}
+
+impl Addresses {
+    pub fn address_family(&self) -> AddressFamily {
+        match self {
+            Addresses::Unspecified => AddressFamily::Unspecified,
+            Addresses::IPv4(..) => AddressFamily::IPv4,
+            Addresses::IPv6(..) => AddressFamily::IPv6,
+            Addresses::Unix(..) => AddressFamily::Unix,
+        }
     }
 }
 
