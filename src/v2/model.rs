@@ -40,13 +40,13 @@ impl<'a> Header<'a> {
         &self.header[MINIMUM_LENGTH..self.address_bytes_end()]
     }
 
-    pub fn additional_bytes(&self) -> &'a [u8] {
+    pub fn tlv_bytes(&self) -> &'a [u8] {
         &self.header[self.address_bytes_end()..]
     }
 
     pub fn tlvs(&self) -> TypeLengthValues<'a> {
         TypeLengthValues {
-            bytes: self.additional_bytes(),
+            bytes: self.tlv_bytes(),
             offset: 0,
         }
     }
@@ -183,6 +183,15 @@ pub struct TypeLengthValue<'a> {
     value: &'a [u8],
 }
 
+impl<'a> TypeLengthValue<'a> {
+    pub fn new<T: Into<u8>, V: Into<&'a [u8]>>(kind: T, value: V) -> Self {
+        TypeLengthValue {
+            kind: kind.into(),
+            value: value.into(),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Type {
     ALPN = 1,
@@ -199,9 +208,21 @@ pub enum Type {
     NetworkNamespace = 30,
 }
 
+impl From<Type> for u8 {
+    fn from(kind: Type) -> Self {
+        kind as u8
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ClientType {
     SSL = 1,
     CertificateConnection,
     CertificateSession,
+}
+
+impl From<ClientType> for u8 {
+    fn from(kind: ClientType) -> Self {
+        kind as u8
+    }
 }

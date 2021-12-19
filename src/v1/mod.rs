@@ -177,7 +177,7 @@ mod tests {
 
     #[test]
     fn exact_tcp4() {
-        let ip = "255.255.255.255".parse().unwrap();
+        let ip: Ipv4Addr = "255.255.255.255".parse().unwrap();
         let port = 65535;
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n";
         let expected = Header::new(text, Addresses::new_tcp4(ip, ip, port, port));
@@ -188,7 +188,7 @@ mod tests {
 
     #[test]
     fn valid_tcp4() {
-        let ip = "255.255.255.255".parse().unwrap();
+        let ip: Ipv4Addr = "255.255.255.255".parse().unwrap();
         let port = 65535;
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\nFoobar";
         let expected = Header::new(
@@ -276,7 +276,7 @@ mod tests {
 
     #[test]
     fn valid_tcp6() {
-        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let ip: Ipv6Addr = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
         let port = 65535;
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\nHi!";
         let expected = Header::new("PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n", Addresses::new_tcp6(ip, ip, port, port));
@@ -287,7 +287,7 @@ mod tests {
 
     #[test]
     fn valid_tcp6_short() {
-        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let ip: Ipv6Addr = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
         let port = 65535;
         let short_ip = "::1".parse().unwrap();
         let text = "PROXY TCP6 ::1 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\nHi!";
@@ -334,7 +334,7 @@ mod tests {
 
     #[test]
     fn parse_tcp6_shortened_connection() {
-        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let ip: Ipv6Addr = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
         let short_ip = "ffff::ffff".parse().unwrap();
         let port = 65535;
         let text = "PROXY TCP6 ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn parse_tcp6_single_zero() {
-        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let ip: Ipv6Addr = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
         let short_ip = "ffff:ffff:ffff:ffff::ffff:ffff:ffff".parse().unwrap();
         let port = 65535;
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff::ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
@@ -358,7 +358,7 @@ mod tests {
 
     #[test]
     fn parse_tcp6_wildcard() {
-        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let ip: Ipv6Addr = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
         let short_ip = "::".parse().unwrap();
         let port = 65535;
         let text = "PROXY TCP6 :: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
@@ -370,7 +370,7 @@ mod tests {
 
     #[test]
     fn parse_tcp6_implied() {
-        let ip = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
+        let ip: Ipv6Addr = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap();
         let short_ip = "ffff::".parse().unwrap();
         let port = 65535;
         let text = "PROXY TCP6 ffff:: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";

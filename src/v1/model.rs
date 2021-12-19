@@ -89,8 +89,11 @@ pub struct Header<'a> {
 
 impl<'a> Header<'a> {
     /// Creates a new `Header` with the given addresses and a reference to the original input.
-    pub fn new(header: &'a str, addresses: Addresses) -> Self {
-        Header { header, addresses }
+    pub fn new<H: Into<&'a str>, A: Into<Addresses>>(header: H, addresses: A) -> Self {
+        Header {
+            header: header.into(),
+            addresses: addresses.into(),
+        }
     }
 
     /// The protocol portion of this `Header`.
@@ -182,31 +185,31 @@ pub enum Addresses {
 
 impl Addresses {
     /// Create a new IPv4 TCP address.
-    pub fn new_tcp4(
-        source_address: Ipv4Addr,
-        destination_address: Ipv4Addr,
+    pub fn new_tcp4<T: Into<Ipv4Addr>>(
+        source_address: T,
+        destination_address: T,
         source_port: u16,
         destination_port: u16,
     ) -> Self {
         Addresses::Tcp4(IPv4 {
-            source_address,
+            source_address: source_address.into(),
             source_port,
-            destination_address,
+            destination_address: destination_address.into(),
             destination_port,
         })
     }
 
     /// Create a new IPv6 TCP address.
-    pub fn new_tcp6(
-        source_address: Ipv6Addr,
-        destination_address: Ipv6Addr,
+    pub fn new_tcp6<T: Into<Ipv6Addr>>(
+        source_address: T,
+        destination_address: T,
         source_port: u16,
         destination_port: u16,
     ) -> Self {
         Addresses::Tcp6(IPv6 {
-            source_address,
+            source_address: source_address.into(),
             source_port,
-            destination_address,
+            destination_address: destination_address.into(),
             destination_port,
         })
     }

@@ -127,6 +127,7 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use model::{ClientType, Type, TypeLengthValue};
 
     #[test]
     fn no_tlvs() {
@@ -158,7 +159,7 @@ mod tests {
             actual.address_bytes(),
             &[127, 0, 0, 1, 127, 0, 0, 2, 0, 80, 1, 187]
         );
-        assert_eq!(actual.additional_bytes(), &[]);
+        assert_eq!(actual.tlv_bytes(), &[]);
     }
 
     #[test]
@@ -191,7 +192,7 @@ mod tests {
             actual.address_bytes(),
             &[127, 0, 0, 1, 127, 0, 0, 2, 0, 80, 1, 187]
         );
-        assert_eq!(actual.additional_bytes(), &[]);
+        assert_eq!(actual.tlv_bytes(), &[]);
     }
 
     #[test]
@@ -219,7 +220,7 @@ mod tests {
         assert_eq!(actual.length(), 8);
         assert_eq!(actual.address_family(), AddressFamily::Unspecified);
         assert_eq!(actual.address_bytes(), &[127, 0, 0, 1, 127, 0, 0, 2]);
-        assert_eq!(actual.additional_bytes(), &[]);
+        assert_eq!(actual.tlv_bytes(), &[]);
     }
 
     #[test]
@@ -341,51 +342,68 @@ mod tests {
             actual.address_bytes(),
             &[127, 0, 0, 1, 127, 0, 0, 2, 0, 80, 1, 187]
         );
-        assert_eq!(actual.additional_bytes(), &[]);
+        assert_eq!(actual.tlv_bytes(), &[]);
     }
 
-    /*
     #[test]
     fn with_tlvs() {
+        let source_address = [
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xF2,
+        ];
+        let destination_address = [
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xF1,
+        ];
+        let tlv_1 = vec![5];
+        let tlv_2 = vec![5, 5];
         let mut input: Vec<u8> = Vec::with_capacity(PROTOCOL_PREFIX.len());
 
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x21);
         input.extend(&[0, 45]);
-        input.extend(&[
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xF2,
-        ]);
-        input.extend(&[
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xF1,
-        ]);
+        input.extend(source_address);
+        input.extend(destination_address);
         input.extend(&[0, 80]);
         input.extend(&[1, 187]);
         input.extend(&[1, 0, 1, 5]);
         input.extend(&[2, 0, 2, 5, 5]);
 
+        let expected = Header {
+            header: input.as_slice(),
+            version: Version::Two,
+            command: Command::Proxy,
+            protocol: Protocol::Stream,
+            addresses: IPv6::new(source_address, destination_address, 80, 443).into(),
+        };
+        let expected_tlvs = vec![
+            Ok(TypeLengthValue::new(Type::ALPN, tlv_1.as_slice())),
+            Ok(TypeLengthValue::new(
+                ClientType::CertificateConnection,
+                tlv_2.as_slice(),
+            )),
+        ];
+
+        let actual = Header::try_from(input.as_slice()).unwrap();
+        let actual_tlvs: Vec<Result<TypeLengthValue<'_>, ParseError>> = actual.tlvs().collect();
+
+        assert_eq!(actual, expected);
+        assert_eq!(actual_tlvs, expected_tlvs);
+        assert_eq!(actual.length(), 45);
+        assert_eq!(actual.address_family(), AddressFamily::IPv6);
         assert_eq!(
-            Header::try_from(&input[..]),
-            Ok((
-                &[][..],
-                Header::new(
-                    Version::Two,
-                    Command::Proxy,
-                    Protocol::Stream,
-                    vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
-                    (
-                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF2],
-                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1],
-                        80,
-                        443
-                    )
-                        .into(),
-                )
-            ))
-        )
+            actual.address_bytes(),
+            &[
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                0xFF, 0xF2, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                0xFF, 0xFF, 0xFF, 0xF1, 0, 80, 1, 187
+            ]
+        );
+        assert_eq!(actual.tlv_bytes(), &[1, 0, 1, 5, 2, 0, 2, 5, 5]);
     }
+
+    /*
 
     #[test]
     fn tlvs_with_extra() {
@@ -429,6 +447,7 @@ mod tests {
             ))
         )
     }
+
 
     #[test]
     fn unix_tlvs_with_extra() {
