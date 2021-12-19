@@ -16,7 +16,6 @@ pub struct Header<'a> {
     pub header: &'a [u8],
     pub version: Version,
     pub command: Command,
-    pub address_family: AddressFamily,
     pub protocol: Protocol,
     pub length: u16,
     pub addresses: Addresses
@@ -27,9 +26,13 @@ impl<'a> Header<'a> {
         self.length as usize
     }
 
+    pub fn address_family(&self) -> AddressFamily {
+        (&self.addresses).into()
+    }
+
     fn address_bytes_end(&self) -> usize {
         let length = self.length();
-        let address_bytes = self.address_family.byte_length().unwrap_or(length);
+        let address_bytes = self.address_family().byte_length().unwrap_or(length);
 
         MINIMUM_LENGTH + std::cmp::min(address_bytes, length)
     }
@@ -112,6 +115,17 @@ pub enum AddressFamily {
     IPv4 = 0x10,
     IPv6 = 0x20,
     Unix = 0x30,
+}
+
+impl From<&Addresses> for AddressFamily {
+    fn from(addresses: &Addresses) -> Self {
+        match addresses {
+            Addresses::Unspecified => AddressFamily::Unspecified,
+            Addresses::IPv4(..) => AddressFamily::IPv4,
+            Addresses::IPv6(..) => AddressFamily::IPv6,
+            Addresses::Unix(..) => AddressFamily::Unix,
+        }
+    }
 }
 
 impl AddressFamily {

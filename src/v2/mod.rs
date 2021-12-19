@@ -118,7 +118,6 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
             header,
             version,
             command,
-            address_family,
             protocol,
             length,
             addresses
@@ -148,15 +147,17 @@ mod tests {
             header: input.as_slice(),
             version: Version::Two,
             command: Command::Proxy,
-            address_family: AddressFamily::IPv4,
             protocol: Protocol::Stream,
             length: 12,
-            addresses: Addresses::IPv4(IPv4::new([127, 0, 0, 1], [127, 0, 0, 2], 80, 443))
+            addresses: IPv4::new([127, 0, 0, 1], [127, 0, 0, 2], 80, 443).into()
         };
         let actual = Header::try_from(input.as_slice()).unwrap();
 
         assert_eq!(actual, expected);
         assert!(actual.tlvs().next().is_none());
+        assert_eq!(actual.address_family(), AddressFamily::IPv4);
+        assert_eq!(actual.address_bytes(), &[127, 0, 0, 1, 127, 0, 0, 2, 0, 80, 1, 187]);
+        assert_eq!(actual.additional_bytes(), &[]);
     }
 
     #[test]
@@ -176,7 +177,6 @@ mod tests {
             header: input.as_slice(),
             version: Version::Two,
             command: Command::Proxy,
-            address_family: AddressFamily::Unspecified,
             protocol: Protocol::Unspecified,
             length: 12,
             addresses: Addresses::Unspecified
@@ -185,6 +185,9 @@ mod tests {
 
         assert_eq!(actual, expected);
         assert!(actual.tlvs().next().is_none());
+        assert_eq!(actual.address_family(), AddressFamily::Unspecified);
+        assert_eq!(actual.address_bytes(), &[127, 0, 0, 1, 127, 0, 0, 2, 0, 80, 1, 187]);
+        assert_eq!(actual.additional_bytes(), &[]);
     }
 
     #[test]
@@ -202,7 +205,6 @@ mod tests {
             header: input.as_slice(),
             version: Version::Two,
             command: Command::Proxy,
-            address_family: AddressFamily::Unspecified,
             protocol: Protocol::Stream,
             length: 8,
             addresses: Addresses::Unspecified
@@ -211,6 +213,10 @@ mod tests {
 
         assert_eq!(actual, expected);
         assert!(actual.tlvs().next().is_none());
+        assert_eq!(actual.address_family(), AddressFamily::Unspecified);
+        assert_eq!(actual.address_bytes(), &[127, 0, 0, 1, 127, 0, 0, 2]);
+        assert_eq!(actual.additional_bytes(), &[]);
+        
     }
 
     #[test]
@@ -318,15 +324,17 @@ mod tests {
             header: &input[..input.len() - 1],
             version: Version::Two,
             command: Command::Proxy,
-            address_family: AddressFamily::IPv4,
             protocol: Protocol::Stream,
             length: 12,
-            addresses: Addresses::IPv4(IPv4::new([127, 0, 0, 1], [127, 0, 0, 2], 80, 443))
+            addresses: IPv4::new([127, 0, 0, 1], [127, 0, 0, 2], 80, 443).into()
         };
         let actual = Header::try_from(input.as_slice()).unwrap();
 
         assert_eq!(actual, expected);
         assert!(actual.tlvs().next().is_none());
+        assert_eq!(actual.address_family(), AddressFamily::IPv4);
+        assert_eq!(actual.address_bytes(), &[127, 0, 0, 1, 127, 0, 0, 2, 0, 80, 1, 187]);
+        assert_eq!(actual.additional_bytes(), &[]);
     }
 
     /*
