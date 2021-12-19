@@ -27,14 +27,10 @@ impl<'a> Header<'a> {
     }
 
     fn address_bytes_end(&self) -> usize {
-        let address_bytes = match self.address_family {
-            AddressFamily::IPv4 => IPV4_ADDRESSES_BYTES,
-            AddressFamily::IPv6 => IPV6_ADDRESSES_BYTES,
-            AddressFamily::Unix => UNIX_ADDRESSES_BYTES,
-            AddressFamily::Unspecified => self.length(),
-        };
+        let length = self.length();
+        let address_bytes = self.address_family.byte_length().unwrap_or(length);
 
-        MINIMUM_LENGTH + std::cmp::min(address_bytes, self.length())
+        MINIMUM_LENGTH + std::cmp::min(address_bytes, length)
     }
 
     pub fn address_bytes(&self) -> &'a [u8] {
@@ -115,6 +111,17 @@ pub enum AddressFamily {
     IPv4 = 0x10,
     IPv6 = 0x20,
     Unix = 0x30,
+}
+
+impl AddressFamily {
+    pub fn byte_length(&self) -> Option<usize> {
+        match self {
+            AddressFamily::IPv4 => Some(IPV4_ADDRESSES_BYTES),
+            AddressFamily::IPv6 => Some(IPV6_ADDRESSES_BYTES),
+            AddressFamily::Unix => Some(UNIX_ADDRESSES_BYTES),
+            AddressFamily::Unspecified => None,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

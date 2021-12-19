@@ -47,6 +47,12 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
         };
 
         let length = u16::from_be_bytes([input[LENGTH], input[LENGTH + 1]]);
+        let address_family_bytes = address_family.byte_length().unwrap_or_default();
+
+        if (length as usize) < address_family_bytes {
+            return Err(ParseError::InvalidAddresses(length, address_family_bytes));
+        }
+
         let full_length = MINIMUM_LENGTH + length as usize;
 
         if input.len() < full_length {
@@ -55,7 +61,12 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
 
         let header = &input[..full_length];
 
-        // TODO: Parse addresses.
+        let addresses = match address_family {
+            AddressFamily::IPv4 => {}
+            AddressFamily::IPv6 => (),
+            AddressFamily::Unix => (),
+            AddressFamily::Unspecified => (),
+        };
 
         Ok(Header {
             header,
@@ -162,18 +173,9 @@ mod tests {
         input.extend(&[127, 0, 0, 1]);
         input.extend(&[127, 0, 0, 2]);
 
-        let expected = Header {
-            header: input.as_slice(),
-            version: Version::Two,
-            command: Command::Proxy,
-            address_family: AddressFamily::IPv4,
-            protocol: Protocol::Unspecified,
-            length: 8,
-        };
-        let actual = Header::try_from(input.as_slice()).unwrap();
+        let actual = Header::try_from(input.as_slice()).unwrap_err();
 
-        assert_eq!(actual, expected);
-        assert!(actual.tlvs().next().is_none());
+        assert_eq!(actual, ParseError::InvalidAddresses(8, 12));
     }
     /*
     #[test]
