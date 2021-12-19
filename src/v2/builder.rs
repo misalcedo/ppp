@@ -219,10 +219,11 @@ mod tests {
         ];
         let addresses: Addresses = IPv6::new(source_address, destination_address, 80, 443).into();
         let mut expected = Vec::from(PROTOCOL_PREFIX);
-        expected.extend([0x20, 0x20, 0, 36]);
+        expected.extend([0x20, 0x20, 0, 44]);
         expected.extend(source_address);
         expected.extend(destination_address);
         expected.extend([0, 80, 1, 187]);
+        expected.extend([4, 0, 1, 0, 4, 0, 1, 42]);
 
         let header = HeaderBuilder::new(
             Version::Two | Command::Local,
@@ -230,6 +231,8 @@ mod tests {
             None,
         )
         .write_addresses(addresses)
+        .write_tlvs(vec![(Type::NoOp, [0].as_slice())])
+        .write_tlv(Type::NoOp, [42].as_slice())
         .build();
 
         assert_eq!(header, expected);
@@ -245,13 +248,15 @@ mod tests {
         expected.extend([0x20, 0x31, 0, 216]);
         expected.extend(source_address);
         expected.extend(destination_address);
+        expected.extend([1, 0, 0]);
 
         let header = HeaderBuilder::new(
             Version::Two | Command::Local,
             AddressFamily::Unix | Protocol::Stream,
-            None,
+            Some(216),
         )
         .write_addresses(addresses)
+        .write_tlv(ClientType::SSL, &[])
         .build();
 
         assert_eq!(header, expected);
