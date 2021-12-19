@@ -184,10 +184,10 @@ pub struct TypeLengthValue<'a> {
 }
 
 impl<'a> TypeLengthValue<'a> {
-    pub fn new<T: Into<u8>, V: Into<&'a [u8]>>(kind: T, value: V) -> Self {
+    pub fn new<T: Into<u8>>(kind: T, value: &'a [u8]) -> Self {
         TypeLengthValue {
             kind: kind.into(),
-            value: value.into(),
+            value,
         }
     }
 }

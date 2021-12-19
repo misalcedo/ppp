@@ -376,10 +376,10 @@ mod tests {
             addresses: IPv6::new(source_address, destination_address, 80, 443).into(),
         };
         let expected_tlvs = vec![
-            Ok(TypeLengthValue::new(Type::ALPN, [5].as_slice())),
+            Ok(TypeLengthValue::new(Type::ALPN, &[5])),
             Ok(TypeLengthValue::new(
                 ClientType::CertificateConnection,
-                [5, 5].as_slice(),
+                &[5, 5],
             )),
         ];
 
