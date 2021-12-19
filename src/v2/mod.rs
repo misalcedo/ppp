@@ -170,7 +170,7 @@ mod tests {
 
         assert_eq!(actual, ParseError::InvalidAddresses(8, 12));
     }
-    /*
+    
     #[test]
     fn invalid_version() {
         let mut input: Vec<u8> = Vec::with_capacity(PROTOCOL_PREFIX.len());
@@ -184,7 +184,9 @@ mod tests {
         input.extend(&[0, 80]);
         input.extend(&[1, 187]);
 
-        assert!(!Header::try_from(&input[..]).unwrap_err().is_incomplete());
+        let actual = Header::try_from(input.as_slice()).unwrap_err();
+
+        assert_eq!(actual, ParseError::Version(0x10));
     }
 
     #[test]
@@ -200,8 +202,9 @@ mod tests {
         input.extend(&[0, 80]);
         input.extend(&[1, 187]);
 
-        assert!(!Header::try_from(&input[..]).unwrap_err().is_incomplete());
-    }
+        let actual = Header::try_from(input.as_slice()).unwrap_err();
+
+        assert_eq!(actual, ParseError::AddressFamily(0x50));    }
 
     #[test]
     fn invalid_command() {
@@ -216,7 +219,9 @@ mod tests {
         input.extend(&[0, 80]);
         input.extend(&[1, 187]);
 
-        assert!(!Header::try_from(&input[..]).unwrap_err().is_incomplete());
+        let actual = Header::try_from(input.as_slice()).unwrap_err();
+
+        assert_eq!(actual, ParseError::Command(0x03));
     }
 
     #[test]
@@ -232,9 +237,12 @@ mod tests {
         input.extend(&[0, 80]);
         input.extend(&[1, 187]);
 
-        assert!(!Header::try_from(&input[..]).unwrap_err().is_incomplete());
+        let actual = Header::try_from(input.as_slice()).unwrap_err();
+
+        assert_eq!(actual, ParseError::Protocol(0x07));
     }
 
+    /*
     #[test]
     fn proxy_with_extra() {
         let mut input: Vec<u8> = Vec::with_capacity(PROTOCOL_PREFIX.len());
