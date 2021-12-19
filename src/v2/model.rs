@@ -17,13 +17,12 @@ pub struct Header<'a> {
     pub version: Version,
     pub command: Command,
     pub protocol: Protocol,
-    pub length: u16,
-    pub addresses: Addresses
+    pub addresses: Addresses,
 }
 
 impl<'a> Header<'a> {
     pub fn length(&self) -> usize {
-        self.length as usize
+        self.header[MINIMUM_LENGTH..].len()
     }
 
     pub fn address_family(&self) -> AddressFamily {
