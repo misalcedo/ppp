@@ -1,5 +1,6 @@
 use crate::ip::{IPv4, IPv6};
 use crate::v2::error::ParseError;
+use std::ops::BitAnd;
 
 pub const PROTOCOL_PREFIX: &[u8] = b"\r\n\r\n\0\r\nQUIT\n";
 pub const VERSION_COMMAND: usize = PROTOCOL_PREFIX.len();
@@ -102,10 +103,26 @@ pub enum Version {
     Two = 0x20,
 }
 
+impl BitAnd<Command> for Version {
+    type Output = u8;
+
+    fn bitand(self, command: Command) -> Self::Output {
+        (self as u8) & (command as u8)
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Command {
     Local = 0,
     Proxy,
+}
+
+impl BitAnd<Version> for Command {
+    type Output = u8;
+
+    fn bitand(self, version: Version) -> Self::Output {
+        (self as u8) & (version as u8)
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -114,6 +131,14 @@ pub enum AddressFamily {
     IPv4 = 0x10,
     IPv6 = 0x20,
     Unix = 0x30,
+}
+
+impl BitAnd<Protocol> for AddressFamily {
+    type Output = u8;
+
+    fn bitand(self, protocol: Protocol) -> Self::Output {
+        (self as u8) & (protocol as u8)
+    }
 }
 
 impl AddressFamily {
@@ -175,6 +200,14 @@ pub enum Protocol {
     Unspecified = 0,
     Stream,
     Datagram,
+}
+
+impl BitAnd<AddressFamily> for Protocol {
+    type Output = u8;
+
+    fn bitand(self, address_family: AddressFamily) -> Self::Output {
+        (self as u8) & (address_family as u8)
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
