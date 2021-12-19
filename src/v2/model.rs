@@ -102,6 +102,16 @@ impl<'a> Iterator for TypeLengthValues<'a> {
     }
 }
 
+impl<'a> TypeLengthValues<'a> {
+    pub fn len(&self) -> u16 {
+        self.bytes.len() as u16
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Version {
     Two = 0x20,
@@ -249,6 +259,14 @@ impl<'a> TypeLengthValue<'a> {
             kind: kind.into(),
             value,
         }
+    }
+
+    pub fn len(&self) -> u16 {
+        self.value.len() as u16
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.value.is_empty()
     }
 }
 

@@ -5,8 +5,9 @@ mod model;
 use crate::ip::{IPv4, IPv6};
 pub use error::ParseError;
 pub use model::{
-    AddressFamily, Addresses, ClientType, Command, Header, Protocol, Type, TypeLengthValues, Unix,
-    Version, ADDRESS_FAMILY_PROTOCOL, LENGTH, MINIMUM_LENGTH, PROTOCOL_PREFIX, VERSION_COMMAND,
+    AddressFamily, Addresses, ClientType, Command, Header, Protocol, Type, TypeLengthValue,
+    TypeLengthValues, Unix, Version, ADDRESS_FAMILY_PROTOCOL, LENGTH, MINIMUM_LENGTH,
+    PROTOCOL_PREFIX, VERSION_COMMAND,
 };
 use std::net::{Ipv4Addr, Ipv6Addr};
 
