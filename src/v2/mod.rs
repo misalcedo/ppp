@@ -136,11 +136,11 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x11);
-        input.extend(&[0, 12]);
-        input.extend(&[127, 0, 0, 1]);
-        input.extend(&[127, 0, 0, 2]);
-        input.extend(&[0, 80]);
-        input.extend(&[1, 187]);
+        input.extend([0, 12]);
+        input.extend([127, 0, 0, 1]);
+        input.extend([127, 0, 0, 2]);
+        input.extend([0, 80]);
+        input.extend([1, 187]);
 
         let expected = Header {
             header: input.as_slice(),
@@ -169,11 +169,11 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x00);
-        input.extend(&[0, 12]);
-        input.extend(&[127, 0, 0, 1]);
-        input.extend(&[127, 0, 0, 2]);
-        input.extend(&[0, 80]);
-        input.extend(&[1, 187]);
+        input.extend([0, 12]);
+        input.extend([127, 0, 0, 1]);
+        input.extend([127, 0, 0, 2]);
+        input.extend([0, 80]);
+        input.extend([1, 187]);
 
         let expected = Header {
             header: input.as_slice(),
@@ -202,9 +202,9 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x01);
-        input.extend(&[0, 8]);
-        input.extend(&[127, 0, 0, 1]);
-        input.extend(&[127, 0, 0, 2]);
+        input.extend([0, 8]);
+        input.extend([127, 0, 0, 1]);
+        input.extend([127, 0, 0, 2]);
 
         let expected = Header {
             header: input.as_slice(),
@@ -230,9 +230,9 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x10);
-        input.extend(&[0, 8]);
-        input.extend(&[127, 0, 0, 1]);
-        input.extend(&[127, 0, 0, 2]);
+        input.extend([0, 8]);
+        input.extend([127, 0, 0, 1]);
+        input.extend([127, 0, 0, 2]);
 
         let actual = Header::try_from(input.as_slice()).unwrap_err();
 
@@ -246,11 +246,11 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x11);
         input.push(0x11);
-        input.extend(&[0, 12]);
-        input.extend(&[127, 0, 0, 1]);
-        input.extend(&[127, 0, 0, 2]);
-        input.extend(&[0, 80]);
-        input.extend(&[1, 187]);
+        input.extend([0, 12]);
+        input.extend([127, 0, 0, 1]);
+        input.extend([127, 0, 0, 2]);
+        input.extend([0, 80]);
+        input.extend([1, 187]);
 
         let actual = Header::try_from(input.as_slice()).unwrap_err();
 
@@ -264,11 +264,11 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x51);
-        input.extend(&[0, 12]);
-        input.extend(&[127, 0, 0, 1]);
-        input.extend(&[127, 0, 0, 2]);
-        input.extend(&[0, 80]);
-        input.extend(&[1, 187]);
+        input.extend([0, 12]);
+        input.extend([127, 0, 0, 1]);
+        input.extend([127, 0, 0, 2]);
+        input.extend([0, 80]);
+        input.extend([1, 187]);
 
         let actual = Header::try_from(input.as_slice()).unwrap_err();
 
@@ -282,11 +282,11 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x23);
         input.push(0x11);
-        input.extend(&[0, 12]);
-        input.extend(&[127, 0, 0, 1]);
-        input.extend(&[127, 0, 0, 2]);
-        input.extend(&[0, 80]);
-        input.extend(&[1, 187]);
+        input.extend([0, 12]);
+        input.extend([127, 0, 0, 1]);
+        input.extend([127, 0, 0, 2]);
+        input.extend([0, 80]);
+        input.extend([1, 187]);
 
         let actual = Header::try_from(input.as_slice()).unwrap_err();
 
@@ -300,11 +300,11 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x20);
         input.push(0x17);
-        input.extend(&[0, 12]);
-        input.extend(&[127, 0, 0, 1]);
-        input.extend(&[127, 0, 0, 2]);
-        input.extend(&[0, 80]);
-        input.extend(&[1, 187]);
+        input.extend([0, 12]);
+        input.extend([127, 0, 0, 1]);
+        input.extend([127, 0, 0, 2]);
+        input.extend([0, 80]);
+        input.extend([1, 187]);
 
         let actual = Header::try_from(input.as_slice()).unwrap_err();
 
@@ -318,12 +318,12 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x11);
-        input.extend(&[0, 12]);
-        input.extend(&[127, 0, 0, 1]);
-        input.extend(&[127, 0, 0, 2]);
-        input.extend(&[0, 80]);
-        input.extend(&[1, 187]);
-        input.extend(&[42]);
+        input.extend([0, 12]);
+        input.extend([127, 0, 0, 1]);
+        input.extend([127, 0, 0, 2]);
+        input.extend([0, 80]);
+        input.extend([1, 187]);
+        input.extend([42]);
 
         let expected = Header {
             header: &input[..input.len() - 1],
@@ -355,20 +355,18 @@ mod tests {
             0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
             0xFF, 0xF1,
         ];
-        let tlv_1 = vec![5];
-        let tlv_2 = vec![5, 5];
         let mut input: Vec<u8> = Vec::with_capacity(PROTOCOL_PREFIX.len());
 
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x21);
-        input.extend(&[0, 45]);
+        input.extend([0, 45]);
         input.extend(source_address);
         input.extend(destination_address);
-        input.extend(&[0, 80]);
-        input.extend(&[1, 187]);
-        input.extend(&[1, 0, 1, 5]);
-        input.extend(&[2, 0, 2, 5, 5]);
+        input.extend([0, 80]);
+        input.extend([1, 187]);
+        input.extend([1, 0, 1, 5]);
+        input.extend([2, 0, 2, 5, 5]);
 
         let expected = Header {
             header: input.as_slice(),
@@ -378,10 +376,10 @@ mod tests {
             addresses: IPv6::new(source_address, destination_address, 80, 443).into(),
         };
         let expected_tlvs = vec![
-            Ok(TypeLengthValue::new(Type::ALPN, tlv_1.as_slice())),
+            Ok(TypeLengthValue::new(Type::ALPN, [5].as_slice())),
             Ok(TypeLengthValue::new(
                 ClientType::CertificateConnection,
-                tlv_2.as_slice(),
+                [5, 5].as_slice(),
             )),
         ];
 
@@ -412,20 +410,20 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x21);
-        input.extend(&[0, 45]);
-        input.extend(&[
+        input.extend([0, 45]);
+        input.extend([
             0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
             0xFF, 0xFF,
         ]);
-        input.extend(&[
+        input.extend([
             0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
             0xFF, 0xF1,
         ]);
-        input.extend(&[0, 80]);
-        input.extend(&[1, 187]);
-        input.extend(&[1, 0, 1, 5]);
-        input.extend(&[2, 0, 2, 5, 5]);
-        input.extend(&[2, 0, 2, 5, 5]);
+        input.extend([0, 80]);
+        input.extend([1, 187]);
+        input.extend([1, 0, 1, 5]);
+        input.extend([2, 0, 2, 5, 5]);
+        input.extend([2, 0, 2, 5, 5]);
 
         assert_eq!(
             Header::try_from(&input[..]),
@@ -456,12 +454,12 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x30);
-        input.extend(&[0, 225]);
-        input.extend(&[0xFFu8; 108][..]);
-        input.extend(&[0xAAu8; 108][..]);
-        input.extend(&[1, 0, 1, 5]);
-        input.extend(&[2, 0, 2, 5, 5]);
-        input.extend(&[2, 0, 2, 5, 5]);
+        input.extend([0, 225]);
+        input.extend([0xFFu8; 108][..]);
+        input.extend([0xAAu8; 108][..]);
+        input.extend([1, 0, 1, 5]);
+        input.extend([2, 0, 2, 5, 5]);
+        input.extend([2, 0, 2, 5, 5]);
 
         assert_eq!(
             Header::try_from(&input[..]),
@@ -485,17 +483,17 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x20);
-        input.extend(&[0, 41]);
-        input.extend(&[
+        input.extend([0, 41]);
+        input.extend([
             0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
             0xFF, 0xFF,
         ]);
-        input.extend(&[
+        input.extend([
             0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
             0xFF, 0xF1,
         ]);
-        input.extend(&[1, 0, 1, 5]);
-        input.extend(&[2, 0, 2, 5, 5]);
+        input.extend([1, 0, 1, 5]);
+        input.extend([2, 0, 2, 5, 5]);
 
         assert_eq!(
             Header::try_from(&input[..]),
@@ -523,12 +521,12 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x11);
-        input.extend(&[0, 15]);
-        input.extend(&[127, 0, 0, 1]);
-        input.extend(&[127, 0, 0, 2]);
-        input.extend(&[0, 80]);
-        input.extend(&[1, 187]);
-        input.extend(&[1, 0, 1]);
+        input.extend([0, 15]);
+        input.extend([127, 0, 0, 1]);
+        input.extend([127, 0, 0, 2]);
+        input.extend([0, 80]);
+        input.extend([1, 187]);
+        input.extend([1, 0, 1]);
 
         assert!(!Header::try_from(&input[..]).unwrap_err().is_incomplete());
     }
@@ -540,12 +538,12 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x11);
-        input.extend(&[0, 17]);
-        input.extend(&[127, 0, 0, 1]);
-        input.extend(&[127, 0, 0, 2]);
-        input.extend(&[0, 80]);
-        input.extend(&[1, 187]);
-        input.extend(&[1, 0, 1]);
+        input.extend([0, 17]);
+        input.extend([127, 0, 0, 1]);
+        input.extend([127, 0, 0, 2]);
+        input.extend([0, 80]);
+        input.extend([1, 187]);
+        input.extend([1, 0, 1]);
 
         assert!(Header::try_from(&input[..]).unwrap_err().is_incomplete());
     }
@@ -557,12 +555,12 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x11);
-        input.extend(&[0, 16]);
-        input.extend(&[127, 0, 0, 1]);
-        input.extend(&[127, 0, 0, 2]);
-        input.extend(&[0, 80]);
-        input.extend(&[1, 187]);
-        input.extend(&[1, 0, 1]);
+        input.extend([0, 16]);
+        input.extend([127, 0, 0, 1]);
+        input.extend([127, 0, 0, 2]);
+        input.extend([0, 80]);
+        input.extend([1, 187]);
+        input.extend([1, 0, 1]);
 
         assert!(Header::try_from(&input[..]).unwrap_err().is_incomplete());
     }
@@ -574,8 +572,8 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x20);
         input.push(0x02);
-        input.extend(&[0, 0]);
-        input.extend(&[0, 80]);
+        input.extend([0, 0]);
+        input.extend([0, 80]);
 
         assert_eq!(
             Header::try_from(&input[..]),
@@ -599,11 +597,11 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x20);
         input.push(0x02);
-        input.extend(&[0, 12]);
-        input.extend(&[127, 0, 0, 1]);
-        input.extend(&[127, 0, 0, 2]);
-        input.extend(&[0, 80]);
-        input.extend(&[0xbb, 1]);
+        input.extend([0, 12]);
+        input.extend([127, 0, 0, 1]);
+        input.extend([127, 0, 0, 2]);
+        input.extend([0, 80]);
+        input.extend([0xbb, 1]);
 
         assert_eq!(
             Header::try_from(&input[..]),
@@ -627,8 +625,8 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x20);
         input.push(0x22);
-        input.extend(&[0, 0]);
-        input.extend(&[0, 80]);
+        input.extend([0, 0]);
+        input.extend([0, 80]);
 
         assert!(Header::try_from(&input[..]).unwrap_err().is_incomplete());
     }
