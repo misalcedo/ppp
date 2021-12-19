@@ -1,6 +1,6 @@
 use crate::ip::{IPv4, IPv6};
 use crate::v2::error::ParseError;
-use std::ops::BitAnd;
+use std::ops::BitOr;
 
 pub const PROTOCOL_PREFIX: &[u8] = b"\r\n\r\n\0\r\nQUIT\n";
 pub const VERSION_COMMAND: usize = PROTOCOL_PREFIX.len();
@@ -50,6 +50,10 @@ impl<'a> Header<'a> {
             bytes: self.tlv_bytes(),
             offset: 0,
         }
+    }
+
+    pub fn as_bytes(&self) -> &'a [u8] {
+        self.header
     }
 }
 
@@ -103,11 +107,11 @@ pub enum Version {
     Two = 0x20,
 }
 
-impl BitAnd<Command> for Version {
+impl BitOr<Command> for Version {
     type Output = u8;
 
-    fn bitand(self, command: Command) -> Self::Output {
-        (self as u8) & (command as u8)
+    fn bitor(self, command: Command) -> Self::Output {
+        (self as u8) | (command as u8)
     }
 }
 
@@ -117,11 +121,11 @@ pub enum Command {
     Proxy,
 }
 
-impl BitAnd<Version> for Command {
+impl BitOr<Version> for Command {
     type Output = u8;
 
-    fn bitand(self, version: Version) -> Self::Output {
-        (self as u8) & (version as u8)
+    fn bitor(self, version: Version) -> Self::Output {
+        (self as u8) | (version as u8)
     }
 }
 
@@ -133,11 +137,11 @@ pub enum AddressFamily {
     Unix = 0x30,
 }
 
-impl BitAnd<Protocol> for AddressFamily {
+impl BitOr<Protocol> for AddressFamily {
     type Output = u8;
 
-    fn bitand(self, protocol: Protocol) -> Self::Output {
-        (self as u8) & (protocol as u8)
+    fn bitor(self, protocol: Protocol) -> Self::Output {
+        (self as u8) | (protocol as u8)
     }
 }
 
@@ -149,6 +153,12 @@ impl AddressFamily {
             AddressFamily::Unix => Some(UNIX_ADDRESSES_BYTES),
             AddressFamily::Unspecified => None,
         }
+    }
+}
+
+impl From<AddressFamily> for u16 {
+    fn from(address_family: AddressFamily) -> Self {
+        address_family.byte_length().unwrap_or_default() as u16
     }
 }
 
@@ -187,6 +197,14 @@ impl Addresses {
             Addresses::Unix(..) => AddressFamily::Unix,
         }
     }
+
+    pub fn len(&self) -> u16 {
+        self.address_family().into()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.address_family().byte_length().is_none()
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -211,11 +229,11 @@ pub enum Protocol {
     Datagram,
 }
 
-impl BitAnd<AddressFamily> for Protocol {
+impl BitOr<AddressFamily> for Protocol {
     type Output = u8;
 
-    fn bitand(self, address_family: AddressFamily) -> Self::Output {
-        (self as u8) & (address_family as u8)
+    fn bitor(self, address_family: AddressFamily) -> Self::Output {
+        (self as u8) | (address_family as u8)
     }
 }
 
