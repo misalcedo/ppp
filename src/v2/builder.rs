@@ -1,4 +1,4 @@
-use crate::v2::{Addresses, LENGTH, MINIMUM_LENGTH, PROTOCOL_PREFIX};
+use crate::v2::{Addresses, LENGTH, MINIMUM_LENGTH, MINIMUM_TLV_LENGTH, PROTOCOL_PREFIX};
 
 pub struct HeaderBuilder {
     header: Vec<u8>,
@@ -34,7 +34,6 @@ impl HeaderBuilder {
 
     pub fn write_addresses(mut self, addresses: Addresses) -> Self {
         self.write_header();
-        self.header.reserve(addresses.len() as usize);
 
         match addresses {
             Addresses::Unspecified => (),
@@ -85,13 +84,21 @@ impl HeaderBuilder {
         self
     }
 
+    pub fn write(mut self, bytes: &[u8]) -> Self {
+        self.write_header();
+        self.header.extend(bytes);
+        self
+    }
+
     pub fn build(mut self) -> Vec<u8> {
+        self.write_header();
+
         if self.length.is_none() {
-            let length = ((self.header.len() - MINIMUM_LENGTH) as u16).to_be_bytes();
+            let payload_length = u16::try_from(self.header[MINIMUM_LENGTH..].len()).unwrap_or_default();
+            let length = payload_length.to_be_bytes();
             self.header[LENGTH..LENGTH+length.len()].copy_from_slice(length.as_slice());
         };
 
-        self.write_header();
         self.header
     }
 }
@@ -114,6 +121,20 @@ mod tests {
             Some(0),
         )
         .build();
+
+        assert_eq!(header, expected);
+    }
+
+    #[test]
+    fn build_arbitrary_payload() {
+        let mut expected = Vec::from(PROTOCOL_PREFIX);
+        expected.extend([0x21, 0x01, 0, 1, 42]);
+
+        let header = HeaderBuilder::new(
+            Version::Two | Command::Proxy,
+            AddressFamily::Unspecified | Protocol::Stream,
+            None,
+        ).write(&[42]).build();
 
         assert_eq!(header, expected);
     }

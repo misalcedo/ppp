@@ -7,10 +7,10 @@ pub const VERSION_COMMAND: usize = PROTOCOL_PREFIX.len();
 pub const ADDRESS_FAMILY_PROTOCOL: usize = VERSION_COMMAND + 1;
 pub const LENGTH: usize = ADDRESS_FAMILY_PROTOCOL + 1;
 pub const MINIMUM_LENGTH: usize = LENGTH + 2;
+pub const MINIMUM_TLV_LENGTH: usize = 3;
 const IPV4_ADDRESSES_BYTES: usize = 12;
 const IPV6_ADDRESSES_BYTES: usize = 36;
 const UNIX_ADDRESSES_BYTES: usize = 216;
-const MINIMUM_TLV_LENGTH: usize = 3;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Header<'a> {
