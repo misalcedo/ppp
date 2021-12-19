@@ -52,7 +52,7 @@ fn parse_addresses(address_family: AddressFamily, bytes: &[u8]) -> Addresses {
             let mut destination = [0; 108];
 
             source[..].copy_from_slice(&bytes[..108]);
-            destination[..].copy_from_slice(&bytes[108..]);
+            destination[..].copy_from_slice(&bytes[108..216]);
 
             Addresses::Unix(Unix {
                 source,
@@ -112,7 +112,10 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
         }
 
         let header = &input[..full_length];
-        let addresses = parse_addresses(address_family, &header[MINIMUM_LENGTH..]);
+        let addresses = parse_addresses(
+            address_family,
+            &header[MINIMUM_LENGTH..MINIMUM_LENGTH + address_family_bytes],
+        );
 
         Ok(Header {
             header,
@@ -458,37 +461,54 @@ mod tests {
         assert_eq!(actual.tlv_bytes(), &[1, 0, 1, 5, 2, 0, 2, 5, 5]);
     }
 
-    /*
-
-
     #[test]
     fn unix_tlvs_with_extra() {
+        let source_address = [0xFFu8; 108];
+        let destination_address = [0xAAu8; 108];
         let mut input: Vec<u8> = Vec::with_capacity(PROTOCOL_PREFIX.len());
 
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x30);
         input.extend([0, 225]);
-        input.extend([0xFFu8; 108][..]);
-        input.extend([0xAAu8; 108][..]);
+        input.extend(source_address);
+        input.extend(destination_address);
         input.extend([1, 0, 1, 5]);
         input.extend([2, 0, 2, 5, 5]);
         input.extend([2, 0, 2, 5, 5]);
 
-        assert_eq!(
-            Header::try_from(&input[..]),
-            Ok((
-                &[2, 0, 2, 5, 5][..],
-                Header::new(
-                    Version::Two,
-                    Command::Proxy,
-                    Protocol::Unspecified,
-                    vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
-                    ([0xFFFFFFFFu32; 27], [0xAAAAAAAAu32; 27]).into(),
-                )
-            ))
-        )
+        let expected = Header {
+            header: &input[..input.len() - 5],
+            version: Version::Two,
+            command: Command::Proxy,
+            protocol: Protocol::Unspecified,
+            addresses: Unix::new(source_address, destination_address).into(),
+        };
+        let mut expected_address_bytes =
+            Vec::with_capacity(source_address.len() + destination_address.len());
+        expected_address_bytes.extend(source_address);
+        expected_address_bytes.extend(destination_address);
+
+        let expected_tlvs = vec![
+            Ok(TypeLengthValue::new(Type::ALPN, &[5])),
+            Ok(TypeLengthValue::new(
+                ClientType::CertificateConnection,
+                &[5, 5],
+            )),
+        ];
+
+        let actual = Header::try_from(input.as_slice()).unwrap();
+        let actual_tlvs: Vec<Result<TypeLengthValue<'_>, ParseError>> = actual.tlvs().collect();
+
+        assert_eq!(actual, expected);
+        assert_eq!(actual_tlvs, expected_tlvs);
+        assert_eq!(actual.length(), 225);
+        assert_eq!(actual.address_family(), AddressFamily::Unix);
+        assert_eq!(actual.address_bytes(), expected_address_bytes.as_slice());
+        assert_eq!(actual.tlv_bytes(), &[1, 0, 1, 5, 2, 0, 2, 5, 5]);
     }
+
+    /*
 
     #[test]
     fn with_tlvs_without_ports() {
@@ -660,6 +680,8 @@ mod tests {
         assert!(result.unwrap_err().is_incomplete());
     }
 
+    */
+    /*
     #[test]
     fn to_bytes_ipv4_without_tlvs() {
         let header = Header::new(
@@ -764,12 +786,6 @@ mod tests {
         output.extend(&[2, 0, 2, 5, 5]);
 
         assert_eq!(to_bytes(header), Ok(output));
-    }
-
-    #[test]
-    fn to_bytes_verion_one() {
-        let header = Header::unknown();
-        assert!(to_bytes(header).is_err());
     }
     */
 }

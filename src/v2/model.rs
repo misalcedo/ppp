@@ -195,6 +195,15 @@ pub struct Unix {
     pub destination: [u8; 108],
 }
 
+impl Unix {
+    pub fn new(source: [u8; 108], destination: [u8; 108]) -> Self {
+        Unix {
+            source,
+            destination,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Protocol {
     Unspecified = 0,
