@@ -68,12 +68,20 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
     type Error = ParseError;
 
     fn try_from(input: &'a [u8]) -> Result<Self, Self::Error> {
-        if input.len() < MINIMUM_LENGTH {
-            return Err(ParseError::Incomplete(input.len()));
+        if input.len() < PROTOCOL_PREFIX.len() {
+            if PROTOCOL_PREFIX.starts_with(input) {
+                return Err(ParseError::Incomplete(input.len()));
+            } else {
+                return Err(ParseError::Prefix);
+            }
         }
 
         if &input[..VERSION_COMMAND] != PROTOCOL_PREFIX {
             return Err(ParseError::Prefix);
+        }
+
+        if input.len() < MINIMUM_LENGTH {
+            return Err(ParseError::Incomplete(input.len()));
         }
 
         let version = match input[VERSION_COMMAND] & LEFT_MASK {
@@ -110,7 +118,7 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
         let full_length = MINIMUM_LENGTH + length;
 
         if input.len() < full_length {
-            return Err(ParseError::Partial(length, input.len() - MINIMUM_LENGTH));
+            return Err(ParseError::Partial(input.len() - MINIMUM_LENGTH, length));
         }
 
         let header = &input[..full_length];
@@ -165,6 +173,7 @@ mod tests {
             &[127, 0, 0, 1, 127, 0, 0, 2, 0, 80, 1, 187]
         );
         assert_eq!(actual.tlv_bytes(), &[]);
+        assert_eq!(actual.as_bytes(), input.as_slice());
     }
 
     #[test]
@@ -198,6 +207,7 @@ mod tests {
             &[127, 0, 0, 1, 127, 0, 0, 2, 0, 80, 1, 187]
         );
         assert_eq!(actual.tlv_bytes(), &[]);
+        assert_eq!(actual.as_bytes(), input.as_slice());
     }
 
     #[test]
@@ -226,6 +236,7 @@ mod tests {
         assert_eq!(actual.address_family(), AddressFamily::Unspecified);
         assert_eq!(actual.address_bytes(), &[127, 0, 0, 1, 127, 0, 0, 2]);
         assert_eq!(actual.tlv_bytes(), &[]);
+        assert_eq!(actual.as_bytes(), input.as_slice());
     }
 
     #[test]
@@ -330,8 +341,9 @@ mod tests {
         input.extend([1, 187]);
         input.extend([42]);
 
+        let header = &input[..input.len() - 1];
         let expected = Header {
-            header: &input[..input.len() - 1],
+            header,
             version: Version::Two,
             command: Command::Proxy,
             protocol: Protocol::Stream,
@@ -348,6 +360,7 @@ mod tests {
             &[127, 0, 0, 1, 127, 0, 0, 2, 0, 80, 1, 187]
         );
         assert_eq!(actual.tlv_bytes(), &[]);
+        assert_eq!(actual.as_bytes(), header);
     }
 
     #[test]
@@ -404,6 +417,7 @@ mod tests {
             ]
         );
         assert_eq!(actual.tlv_bytes(), &[1, 0, 1, 5, 2, 0, 2, 5, 5]);
+        assert_eq!(actual.as_bytes(), input.as_slice());
     }
 
     #[test]
@@ -430,8 +444,9 @@ mod tests {
         input.extend([2, 0, 2, 5, 5]);
         input.extend([2, 0, 2, 5, 5]);
 
+        let header = &input[..input.len() - 5];
         let expected = Header {
-            header: &input[..input.len() - 5],
+            header,
             version: Version::Two,
             command: Command::Proxy,
             protocol: Protocol::Stream,
@@ -461,6 +476,7 @@ mod tests {
             ]
         );
         assert_eq!(actual.tlv_bytes(), &[1, 0, 1, 5, 2, 0, 2, 5, 5]);
+        assert_eq!(actual.as_bytes(), header);
     }
 
     #[test]
@@ -479,8 +495,9 @@ mod tests {
         input.extend([2, 0, 2, 5, 5]);
         input.extend([2, 0, 2, 5, 5]);
 
+        let header = &input[..input.len() - 5];
         let expected = Header {
-            header: &input[..input.len() - 5],
+            header,
             version: Version::Two,
             command: Command::Proxy,
             protocol: Protocol::Unspecified,
@@ -508,6 +525,7 @@ mod tests {
         assert_eq!(actual.address_family(), AddressFamily::Unix);
         assert_eq!(actual.address_bytes(), expected_address_bytes.as_slice());
         assert_eq!(actual.tlv_bytes(), &[1, 0, 1, 5, 2, 0, 2, 5, 5]);
+        assert_eq!(actual.as_bytes(), header);
     }
 
     #[test]
@@ -532,7 +550,7 @@ mod tests {
         input.extend([2, 0, 2, 5, 5]);
 
         let expected = Header {
-            header: &input[..],
+            header: input.as_slice(),
             version: Version::Two,
             command: Command::Proxy,
             protocol: Protocol::Unspecified,
@@ -559,9 +577,9 @@ mod tests {
             ]
         );
         assert_eq!(actual.tlv_bytes(), &[2, 0, 2, 5, 5]);
+        assert_eq!(actual.as_bytes(), input.as_slice());
     }
 
-    /*
     #[test]
     fn partial_tlv() {
         let mut input: Vec<u8> = Vec::with_capacity(PROTOCOL_PREFIX.len());
@@ -576,7 +594,10 @@ mod tests {
         input.extend([1, 187]);
         input.extend([1, 0, 1]);
 
-        assert!(!Header::try_from(&input[..]).unwrap_err().is_incomplete());
+        let mut tlvs = Header::try_from(input.as_slice()).unwrap().tlvs();
+
+        assert_eq!(tlvs.next().unwrap(), Err(ParseError::InvalidTLV(1, 1)));
+        assert_eq!(tlvs.next(), None);
     }
 
     #[test]
@@ -593,7 +614,7 @@ mod tests {
         input.extend([1, 187]);
         input.extend([1, 0, 1]);
 
-        assert!(Header::try_from(&input[..]).unwrap_err().is_incomplete());
+        assert_eq!(Header::try_from(&input[..]).unwrap_err(), ParseError::Partial(15, 17));
     }
 
     #[test]
@@ -603,14 +624,12 @@ mod tests {
         input.extend_from_slice(PROTOCOL_PREFIX);
         input.push(0x21);
         input.push(0x11);
-        input.extend([0, 16]);
+        input.extend([0, 12]);
         input.extend([127, 0, 0, 1]);
         input.extend([127, 0, 0, 2]);
         input.extend([0, 80]);
-        input.extend([1, 187]);
-        input.extend([1, 0, 1]);
 
-        assert!(Header::try_from(&input[..]).unwrap_err().is_incomplete());
+        assert_eq!(Header::try_from(&input[..]).unwrap_err(), ParseError::Partial(10, 12));
     }
 
     #[test]
@@ -623,19 +642,28 @@ mod tests {
         input.extend([0, 0]);
         input.extend([0, 80]);
 
+        let header = &input[..input.len() - 2];
+        let expected = Header {
+            header,
+            version: Version::Two,
+            command: Command::Local,
+            protocol: Protocol::Datagram,
+            addresses: Addresses::Unspecified,
+        };
+
+        let actual = Header::try_from(input.as_slice()).unwrap();
+        let actual_tlvs: Vec<Result<TypeLengthValue<'_>, ParseError>> = actual.tlvs().collect();
+
+        assert_eq!(actual, expected);
+        assert_eq!(actual_tlvs, vec![]);
+        assert_eq!(actual.length(), 0);
+        assert_eq!(actual.address_family(), AddressFamily::Unspecified);
         assert_eq!(
-            Header::try_from(&input[..]),
-            Ok((
-                &[0, 80][..],
-                Header::new(
-                    Version::Two,
-                    Command::Local,
-                    Protocol::Datagram,
-                    vec![],
-                    Addresses::None,
-                )
-            ))
+            actual.address_bytes(),
+            &[]
         );
+        assert_eq!(actual.tlv_bytes(), &[]);
+        assert_eq!(actual.as_bytes(), header);
     }
 
     #[test]
@@ -651,19 +679,22 @@ mod tests {
         input.extend([0, 80]);
         input.extend([0xbb, 1]);
 
-        assert_eq!(
-            Header::try_from(&input[..]),
-            Ok((
-                &[][..],
-                Header::new(
-                    Version::Two,
-                    Command::Local,
-                    Protocol::Datagram,
-                    vec![],
-                    Addresses::None,
-                )
-            ))
-        );
+        let expected = Header {
+            header: input.as_slice(),
+            version: Version::Two,
+            command: Command::Local,
+            protocol: Protocol::Datagram,
+            addresses: Addresses::Unspecified,
+        };
+        let actual = Header::try_from(input.as_slice()).unwrap();
+
+        assert_eq!(actual, expected);
+        assert!(actual.tlvs().next().is_none());
+        assert_eq!(actual.length(), 12);
+        assert_eq!(actual.address_family(), AddressFamily::Unspecified);
+        assert_eq!(actual.address_bytes(), &[127, 0, 0, 1, 127, 0, 0, 2, 0, 80, 0xbb, 1]);
+        assert_eq!(actual.tlv_bytes(), &[]);
+        assert_eq!(actual.as_bytes(), input.as_slice());
     }
 
     #[test]
@@ -676,130 +707,18 @@ mod tests {
         input.extend([0, 0]);
         input.extend([0, 80]);
 
-        assert!(Header::try_from(&input[..]).unwrap_err().is_incomplete());
+        assert_eq!(Header::try_from(&input[..]).unwrap_err(), ParseError::InvalidAddresses(0, AddressFamily::IPv6.byte_length().unwrap_or_default()));
     }
 
     #[test]
     fn not_prefixed() {
-        let result = Header::try_from(b"\r\n\r\n\x01\r\nQUIT\n");
-
-        assert!(!result.unwrap_err().is_incomplete());
+        assert_eq!(Header::try_from(b"\r\n\r\n\x01\r\nQUIT\n".as_slice()).unwrap_err(), ParseError::Prefix);
+        assert_eq!(Header::try_from(b"\r\n\r\n\x01".as_slice()).unwrap_err(), ParseError::Prefix);
     }
 
     #[test]
     fn incomplete() {
-        let bytes = [0x0D, 0x0A, 0x0D, 0x0A, 0x00];
-        let result = Header::try_from(&bytes[..]);
-
-        assert!(result.unwrap_err().is_incomplete());
+        assert_eq!(Header::try_from([0x0D, 0x0A, 0x0D, 0x0A, 0x00].as_slice()).unwrap_err(), ParseError::Incomplete(5));
+        assert_eq!(Header::try_from(PROTOCOL_PREFIX).unwrap_err(), ParseError::Incomplete(PROTOCOL_PREFIX.len()));
     }
-
-    */
-    /*
-    #[test]
-    fn to_bytes_ipv4_without_tlvs() {
-        let header = Header::new(
-            Version::Two,
-            Command::Proxy,
-            Protocol::Stream,
-            vec![],
-            ([127, 0, 0, 1], [127, 0, 0, 2], 80, 443).into(),
-        );
-        let mut output: Vec<u8> = Vec::with_capacity(PROTOCOL_PREFIX.len());
-
-        output.extend_from_slice(PROTOCOL_PREFIX);
-        output.push(0x21);
-        output.push(0x11);
-        output.extend(&[0, 12]);
-        output.extend(&[127, 0, 0, 1]);
-        output.extend(&[127, 0, 0, 2]);
-        output.extend(&[0, 80]);
-        output.extend(&[1, 187]);
-
-        assert_eq!(to_bytes(header), Ok(output));
-    }
-
-    #[test]
-    fn to_bytes_unspec() {
-        let header = Header::new(
-            Version::Two,
-            Command::Local,
-            Protocol::Unspecified,
-            vec![],
-            Addresses::None,
-        );
-        let mut output: Vec<u8> = Vec::with_capacity(PROTOCOL_PREFIX.len());
-
-        output.extend_from_slice(PROTOCOL_PREFIX);
-        output.push(0x20);
-        output.push(0x00);
-        output.extend(&[0, 0]);
-
-        assert_eq!(to_bytes(header), Ok(output));
-    }
-
-    #[test]
-    fn to_bytes_unix_with_tlvs() {
-        let header = Header::new(
-            Version::Two,
-            Command::Proxy,
-            Protocol::Unspecified,
-            vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
-            ([0xFFFFFFFFu32; 27], [0xAAAAAAAAu32; 27]).into(),
-        );
-        let mut output: Vec<u8> = Vec::with_capacity(PROTOCOL_PREFIX.len());
-
-        output.extend_from_slice(PROTOCOL_PREFIX);
-        output.push(0x21);
-        output.push(0x30);
-        output.extend(&[0, 225]);
-        output.extend(&[0xFFu8; 108][..]);
-        output.extend(&[0xAAu8; 108][..]);
-        output.extend(&[1, 0, 1, 5]);
-        output.extend(&[2, 0, 2, 5, 5]);
-
-        assert_eq!(to_bytes(header), Ok(output));
-    }
-
-    #[test]
-    fn to_bytes_ipv6_with_tlvs() {
-        let header = Header::new(
-            Version::Two,
-            Command::Proxy,
-            Protocol::Stream,
-            vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
-            (
-                [
-                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF2,
-                ],
-                [
-                    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1,
-                ],
-                80,
-                443,
-            )
-                .into(),
-        );
-        let mut output: Vec<u8> = Vec::with_capacity(PROTOCOL_PREFIX.len());
-
-        output.extend_from_slice(PROTOCOL_PREFIX);
-        output.push(0x21);
-        output.push(0x21);
-        output.extend(&[0, 45]);
-        output.extend(&[
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xF2,
-        ]);
-        output.extend(&[
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xF1,
-        ]);
-        output.extend(&[0, 80]);
-        output.extend(&[1, 187]);
-        output.extend(&[1, 0, 1, 5]);
-        output.extend(&[2, 0, 2, 5, 5]);
-
-        assert_eq!(to_bytes(header), Ok(output));
-    }
-    */
 }
