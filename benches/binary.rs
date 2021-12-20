@@ -85,14 +85,13 @@ fn benchmarks(c: &mut Criterion) {
         v2::Addresses::IPv6(v2::IPv6::new(source_address, destination_address, 80, 443));
 
     group.bench_function(
-        BenchmarkId::new("v2::HeaderBuilder::build", "IPv6 with TLVs"),
+        BenchmarkId::new("v2::Builder::build", "IPv6 with TLVs"),
         |b| {
             b.iter(|| {
                 black_box(
-                    v2::Header::builder(
+                    v2::Builder::new(
                         v2::Version::Two | v2::Command::Local,
                         v2::AddressFamily::IPv6 | v2::Protocol::Unspecified,
-                        None,
                     )
                     .write_addresses(addresses)
                     .write_tlvs(vec![(v2::Type::NoOp, [0].as_slice())])
@@ -104,14 +103,14 @@ fn benchmarks(c: &mut Criterion) {
     );
 
     group.bench_function(
-        BenchmarkId::new("v2::HeaderBuilder::build", "IPv6 with TLVs with length"),
+        BenchmarkId::new("v2::Builder::build", "IPv6 with TLVs with length"),
         |b| {
             b.iter(|| {
                 black_box(
-                    v2::Header::builder(
+                    v2::Builder::with_additional_capacity(
                         v2::Version::Two | v2::Command::Local,
                         v2::AddressFamily::IPv6 | v2::Protocol::Unspecified,
-                        Some(60),
+                        addresses.len() + 7,
                     )
                     .write_addresses(addresses)
                     .write_tlvs(vec![(v2::Type::NoOp, [0].as_slice())])

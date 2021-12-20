@@ -1,19 +1,37 @@
 use crate::v2::{Addresses, LENGTH, MINIMUM_LENGTH, PROTOCOL_PREFIX};
 
-pub struct HeaderBuilder {
+pub struct Builder {
     header: Vec<u8>,
     version_command: u8,
     address_family_protocol: u8,
     length: Option<u16>,
 }
 
-impl HeaderBuilder {
-    pub fn new(version_command: u8, address_family_protocol: u8, length: Option<u16>) -> Self {
-        HeaderBuilder {
-            header: Vec::new(),
+impl Builder {
+    pub fn new(version_command: u8, address_family_protocol: u8) -> Self {
+        Builder {
+            header: Vec::with_capacity(MINIMUM_LENGTH),
             version_command,
             address_family_protocol,
-            length,
+            length: None,
+        }
+    }
+
+    pub fn with_length(version_command: u8, address_family_protocol: u8, length: u16) -> Self {
+        Builder {
+            header: Vec::with_capacity(MINIMUM_LENGTH + length as usize),
+            version_command,
+            address_family_protocol,
+            length: Some(length),
+        }
+    }
+
+    pub fn with_additional_capacity(version_command: u8, address_family_protocol: u8, additional_capacity: usize) -> Self {
+        Builder {
+            header: Vec::with_capacity(MINIMUM_LENGTH + additional_capacity),
+            version_command,
+            address_family_protocol,
+            length: None,
         }
     }
 
@@ -120,10 +138,10 @@ mod tests {
         let mut expected = Vec::from(PROTOCOL_PREFIX);
         expected.extend([0x21, 0x01, 0, 0]);
 
-        let header = HeaderBuilder::new(
+        let header = Builder::with_length(
             Version::Two | Command::Proxy,
             AddressFamily::Unspecified | Protocol::Stream,
-            Some(0),
+            0,
         )
         .build();
 
@@ -135,10 +153,9 @@ mod tests {
         let mut expected = Vec::from(PROTOCOL_PREFIX);
         expected.extend([0x21, 0x01, 0, 1, 42]);
 
-        let header = HeaderBuilder::new(
+        let header = Builder::new(
             Version::Two | Command::Proxy,
             AddressFamily::Unspecified | Protocol::Stream,
-            None,
         )
         .write(&[42])
         .build();
@@ -154,10 +171,10 @@ mod tests {
         ]);
 
         let addresses: Addresses = IPv4::new([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into();
-        let header = HeaderBuilder::new(
+        let header = Builder::with_length(
             Version::Two | Command::Proxy,
             AddressFamily::IPv4 | Protocol::Datagram,
-            Some(addresses.len()),
+            addresses.len() as u16,
         )
         .write_addresses(addresses)
         .build();
@@ -182,10 +199,10 @@ mod tests {
         expected.extend(destination_address);
         expected.extend([0, 80, 1, 187]);
 
-        let header = HeaderBuilder::new(
+        let header = Builder::with_length(
             Version::Two | Command::Local,
             AddressFamily::IPv6 | Protocol::Unspecified,
-            Some(addresses.len()),
+            addresses.len() as u16,
         )
         .write_addresses(addresses)
         .build();
@@ -204,10 +221,10 @@ mod tests {
         expected.extend(source_address);
         expected.extend(destination_address);
 
-        let header = HeaderBuilder::new(
+        let header = Builder::with_additional_capacity(
             Version::Two | Command::Local,
             AddressFamily::Unix | Protocol::Stream,
-            Some(addresses.len()),
+            20,
         )
         .write_addresses(addresses)
         .build();
@@ -223,10 +240,10 @@ mod tests {
         ]);
 
         let addresses: Addresses = IPv4::new([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into();
-        let header = HeaderBuilder::new(
+        let header = Builder::with_additional_capacity(
             Version::Two | Command::Proxy,
             AddressFamily::IPv4 | Protocol::Datagram,
-            None,
+            42,
         )
         .write_addresses(addresses)
         .write_tlvs(vec![(Type::NoOp, [0, 42].as_slice())])
@@ -243,10 +260,9 @@ mod tests {
         ]);
 
         let addresses: Addresses = IPv4::new([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into();
-        let header = HeaderBuilder::new(
+        let header = Builder::new(
             Version::Two | Command::Proxy,
             AddressFamily::IPv4 | Protocol::Datagram,
-            None,
         )
         .write_addresses(addresses)
         .write_type_length(Type::SSL, 5)
@@ -274,10 +290,9 @@ mod tests {
         expected.extend([0, 80, 1, 187]);
         expected.extend([4, 0, 1, 0, 4, 0, 1, 42]);
 
-        let header = HeaderBuilder::new(
+        let header = Builder::new(
             Version::Two | Command::Local,
             AddressFamily::IPv6 | Protocol::Unspecified,
-            None,
         )
         .write_addresses(addresses)
         .write_tlvs(vec![(Type::NoOp, [0].as_slice())])
@@ -299,10 +314,10 @@ mod tests {
         expected.extend(destination_address);
         expected.extend([20, 0, 0]);
 
-        let header = HeaderBuilder::new(
+        let header = Builder::with_length(
             Version::Two | Command::Local,
             AddressFamily::Unix | Protocol::Stream,
-            Some(216),
+            216,
         )
         .write_addresses(addresses)
         .write_tlv(Type::SSL, &[])

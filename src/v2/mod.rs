@@ -3,7 +3,7 @@ mod error;
 mod model;
 
 pub use crate::ip::{IPv4, IPv6};
-pub use builder::HeaderBuilder;
+pub use builder::Builder;
 pub use error::ParseError;
 pub use model::{
     AddressFamily, Addresses, Command, Header, Protocol, Type, TypeLengthValue, TypeLengthValues,
