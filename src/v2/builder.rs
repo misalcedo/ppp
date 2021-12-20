@@ -74,6 +74,13 @@ impl HeaderBuilder {
         self
     }
 
+    pub fn write_type_length<T: Into<u8>>(mut self, kind: T, length: u16) -> Self {
+        self.header.push(kind.into());
+        self.header.extend(length.to_be_bytes());
+
+        self
+    }
+
     /// ## Panics
     /// When the length of `value` exceeds `u16::MAX`.
     pub fn write_tlv<T: Into<u8>>(mut self, kind: T, value: &[u8]) -> Self {
@@ -106,9 +113,7 @@ impl HeaderBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::v2::{
-        AddressFamily, ClientType, Command, IPv4, IPv6, Protocol, Type, Unix, Version,
-    };
+    use crate::v2::{AddressFamily, Command, IPv4, IPv6, Protocol, Type, Unix, Version};
 
     #[test]
     fn build_no_payload() {
@@ -231,6 +236,27 @@ mod tests {
     }
 
     #[test]
+    fn build_ipv4_with_nested_tlv() {
+        let mut expected = Vec::from(PROTOCOL_PREFIX);
+        expected.extend([
+            0x21, 0x12, 0, 20, 127, 0, 0, 1, 192, 168, 1, 1, 0, 80, 1, 187, 20, 0, 5, 0, 0, 0, 0, 0
+        ]);
+
+        let addresses: Addresses = IPv4::new([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into();
+        let header = HeaderBuilder::new(
+            Version::Two | Command::Proxy,
+            AddressFamily::IPv4 | Protocol::Datagram,
+            None,
+        )
+        .write_addresses(addresses)
+        .write_type_length(Type::SSL, 5)
+        .write(&[0; 5])
+        .build();
+
+        assert_eq!(header, expected);
+    }
+
+    #[test]
     fn build_ipv6_with_tlvs() {
         let source_address = [
             0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -271,7 +297,7 @@ mod tests {
         expected.extend([0x20, 0x31, 0, 216]);
         expected.extend(source_address);
         expected.extend(destination_address);
-        expected.extend([1, 0, 0]);
+        expected.extend([20, 0, 0]);
 
         let header = HeaderBuilder::new(
             Version::Two | Command::Local,
@@ -279,7 +305,7 @@ mod tests {
             Some(216),
         )
         .write_addresses(addresses)
-        .write_tlv(ClientType::SSL, &[])
+        .write_tlv(Type::SSL, &[])
         .build();
 
         assert_eq!(header, expected);

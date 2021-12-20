@@ -6,10 +6,10 @@ pub use crate::ip::{IPv4, IPv6};
 pub use builder::HeaderBuilder;
 pub use error::ParseError;
 pub use model::{
-    AddressFamily, Addresses, ClientType, Command, Header, Protocol, Type, TypeLengthValue,
-    TypeLengthValues, Unix, Version, ADDRESS_FAMILY_PROTOCOL, LENGTH, MINIMUM_LENGTH,
-    MINIMUM_TLV_LENGTH, PROTOCOL_PREFIX, VERSION_COMMAND,
+    AddressFamily, Addresses, Command, Header, Protocol, Type, TypeLengthValue, TypeLengthValues,
+    Unix, Version, MINIMUM_LENGTH, MINIMUM_TLV_LENGTH, PROTOCOL_PREFIX,
 };
+use model::{ADDRESS_FAMILY_PROTOCOL, LENGTH, VERSION_COMMAND};
 use std::net::{Ipv4Addr, Ipv6Addr};
 
 const LEFT_MASK: u8 = 0xF0;
@@ -141,7 +141,7 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use model::{ClientType, Type, TypeLengthValue};
+    use model::{Type, TypeLengthValue};
 
     #[test]
     fn no_tlvs() {
@@ -385,7 +385,7 @@ mod tests {
         input.extend([0, 80]);
         input.extend([1, 187]);
         input.extend([1, 0, 1, 5]);
-        input.extend([2, 0, 2, 5, 5]);
+        input.extend([3, 0, 2, 5, 5]);
 
         let expected = Header {
             header: input.as_slice(),
@@ -397,7 +397,7 @@ mod tests {
         let expected_tlvs = vec![
             Ok(TypeLengthValue::new(Type::ALPN, &[5])),
             Ok(TypeLengthValue::new(
-                ClientType::CertificateConnection,
+                Type::CRC32C,
                 &[5, 5],
             )),
         ];
@@ -417,7 +417,7 @@ mod tests {
                 0xFF, 0xFF, 0xFF, 0xF1, 0, 80, 1, 187
             ]
         );
-        assert_eq!(actual.tlv_bytes(), &[1, 0, 1, 5, 2, 0, 2, 5, 5]);
+        assert_eq!(actual.tlv_bytes(), &[1, 0, 1, 5, 3, 0, 2, 5, 5]);
         assert_eq!(actual.as_bytes(), input.as_slice());
     }
 
@@ -442,7 +442,7 @@ mod tests {
         input.extend([0, 80]);
         input.extend([1, 187]);
         input.extend([1, 0, 1, 5]);
-        input.extend([2, 0, 2, 5, 5]);
+        input.extend([4, 0, 2, 5, 5]);
         input.extend([2, 0, 2, 5, 5]);
 
         let header = &input[..input.len() - 5];
@@ -456,7 +456,7 @@ mod tests {
         let expected_tlvs = vec![
             Ok(TypeLengthValue::new(Type::ALPN, &[5])),
             Ok(TypeLengthValue::new(
-                ClientType::CertificateConnection,
+                Type::NoOp,
                 &[5, 5],
             )),
         ];
@@ -476,7 +476,7 @@ mod tests {
                 0xFF, 0xFF, 0xFF, 0xF1, 0, 80, 1, 187
             ]
         );
-        assert_eq!(actual.tlv_bytes(), &[1, 0, 1, 5, 2, 0, 2, 5, 5]);
+        assert_eq!(actual.tlv_bytes(), &[1, 0, 1, 5, 4, 0, 2, 5, 5]);
         assert_eq!(actual.as_bytes(), header);
     }
 
@@ -492,9 +492,9 @@ mod tests {
         input.extend([0, 225]);
         input.extend(source_address);
         input.extend(destination_address);
-        input.extend([1, 0, 1, 5]);
         input.extend([2, 0, 2, 5, 5]);
-        input.extend([2, 0, 2, 5, 5]);
+        input.extend([30, 0, 1, 5]);
+        input.extend([1, 0, 2, 5, 5]);
 
         let header = &input[..input.len() - 5];
         let expected = Header {
@@ -510,10 +510,10 @@ mod tests {
         expected_address_bytes.extend(destination_address);
 
         let expected_tlvs = vec![
-            Ok(TypeLengthValue::new(Type::ALPN, &[5])),
+            Ok(TypeLengthValue::new(Type::Authority, &[5, 5])),
             Ok(TypeLengthValue::new(
-                ClientType::CertificateConnection,
-                &[5, 5],
+                Type::NetworkNamespace,
+                &[5],
             )),
         ];
 
@@ -525,7 +525,7 @@ mod tests {
         assert_eq!(actual.length(), 225);
         assert_eq!(actual.address_family(), AddressFamily::Unix);
         assert_eq!(actual.address_bytes(), expected_address_bytes.as_slice());
-        assert_eq!(actual.tlv_bytes(), &[1, 0, 1, 5, 2, 0, 2, 5, 5]);
+        assert_eq!(actual.tlv_bytes(), &[2, 0, 2, 5, 5, 30, 0, 1, 5]);
         assert_eq!(actual.as_bytes(), header);
     }
 
@@ -548,7 +548,7 @@ mod tests {
         input.extend(source_address);
         input.extend(destination_address);
         input.extend([1, 0, 1, 5]);
-        input.extend([2, 0, 2, 5, 5]);
+        input.extend([3, 0, 2, 5, 5]);
 
         let expected = Header {
             header: input.as_slice(),
@@ -558,7 +558,7 @@ mod tests {
             addresses: IPv6::new(source_address, destination_address, 256, 261).into(),
         };
         let expected_tlvs = vec![Ok(TypeLengthValue::new(
-            ClientType::CertificateConnection,
+            Type::CRC32C,
             &[5, 5],
         ))];
 
@@ -577,7 +577,7 @@ mod tests {
                 0xFF, 0xFF, 0xFF, 0xF1, 1, 0, 1, 5
             ]
         );
-        assert_eq!(actual.tlv_bytes(), &[2, 0, 2, 5, 5]);
+        assert_eq!(actual.tlv_bytes(), &[3, 0, 2, 5, 5]);
         assert_eq!(actual.as_bytes(), input.as_slice());
     }
 

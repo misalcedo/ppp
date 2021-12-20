@@ -300,16 +300,3 @@ impl From<Type> for u8 {
         kind as u8
     }
 }
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum ClientType {
-    SSL = 1,
-    CertificateConnection,
-    CertificateSession,
-}
-
-impl From<ClientType> for u8 {
-    fn from(kind: ClientType) -> Self {
-        kind as u8
-    }
-}
