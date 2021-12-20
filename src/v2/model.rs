@@ -1,5 +1,6 @@
 use crate::ip::{IPv4, IPv6};
 use crate::v2::error::ParseError;
+use crate::v2::HeaderBuilder;
 use std::ops::BitOr;
 
 pub const PROTOCOL_PREFIX: &[u8] = b"\r\n\r\n\0\r\nQUIT\n";
@@ -22,6 +23,14 @@ pub struct Header<'a> {
 }
 
 impl<'a> Header<'a> {
+    pub fn builder(
+        version_command: u8,
+        address_family_protocol: u8,
+        length: Option<u16>,
+    ) -> HeaderBuilder {
+        HeaderBuilder::new(version_command, address_family_protocol, length)
+    }
+
     pub fn length(&self) -> usize {
         self.header[MINIMUM_LENGTH..].len()
     }

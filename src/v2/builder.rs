@@ -1,4 +1,4 @@
-use crate::v2::{Addresses, LENGTH, MINIMUM_LENGTH, MINIMUM_TLV_LENGTH, PROTOCOL_PREFIX};
+use crate::v2::{Addresses, LENGTH, MINIMUM_LENGTH, PROTOCOL_PREFIX};
 
 pub struct HeaderBuilder {
     header: Vec<u8>,
