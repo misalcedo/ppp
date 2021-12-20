@@ -63,6 +63,12 @@ pub struct TypeLengthValues<'a> {
     offset: usize,
 }
 
+impl<'a> TypeLengthValues<'a> {
+    pub fn as_bytes(&self) -> &'a [u8] {
+        self.bytes
+    }
+}
+
 impl<'a> From<&'a [u8]> for TypeLengthValues<'a> {
     fn from(bytes: &'a [u8]) -> Self {
         TypeLengthValues { bytes, offset: 0 }
@@ -249,8 +255,8 @@ impl BitOr<AddressFamily> for Protocol {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct TypeLengthValue<'a> {
-    kind: u8,
-    value: &'a [u8],
+    pub kind: u8,
+    pub value: &'a [u8],
 }
 
 impl<'a> TypeLengthValue<'a> {
@@ -261,8 +267,8 @@ impl<'a> TypeLengthValue<'a> {
         }
     }
 
-    pub fn len(&self) -> u16 {
-        self.value.len() as u16
+    pub fn len(&self) -> usize {
+        self.value.len()
     }
 
     pub fn is_empty(&self) -> bool {

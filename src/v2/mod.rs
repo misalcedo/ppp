@@ -3,7 +3,7 @@ mod error;
 mod model;
 
 pub use crate::ip::{IPv4, IPv6};
-pub use builder::Builder;
+pub use builder::{Builder, Writer};
 pub use error::ParseError;
 pub use model::{
     AddressFamily, Addresses, Command, Header, Protocol, Type, TypeLengthValue, TypeLengthValues,
@@ -396,10 +396,7 @@ mod tests {
         };
         let expected_tlvs = vec![
             Ok(TypeLengthValue::new(Type::ALPN, &[5])),
-            Ok(TypeLengthValue::new(
-                Type::CRC32C,
-                &[5, 5],
-            )),
+            Ok(TypeLengthValue::new(Type::CRC32C, &[5, 5])),
         ];
 
         let actual = Header::try_from(input.as_slice()).unwrap();
@@ -455,10 +452,7 @@ mod tests {
         };
         let expected_tlvs = vec![
             Ok(TypeLengthValue::new(Type::ALPN, &[5])),
-            Ok(TypeLengthValue::new(
-                Type::NoOp,
-                &[5, 5],
-            )),
+            Ok(TypeLengthValue::new(Type::NoOp, &[5, 5])),
         ];
 
         let actual = Header::try_from(input.as_slice()).unwrap();
@@ -511,10 +505,7 @@ mod tests {
 
         let expected_tlvs = vec![
             Ok(TypeLengthValue::new(Type::Authority, &[5, 5])),
-            Ok(TypeLengthValue::new(
-                Type::NetworkNamespace,
-                &[5],
-            )),
+            Ok(TypeLengthValue::new(Type::NetworkNamespace, &[5])),
         ];
 
         let actual = Header::try_from(input.as_slice()).unwrap();
@@ -557,10 +548,7 @@ mod tests {
             protocol: Protocol::Unspecified,
             addresses: IPv6::new(source_address, destination_address, 256, 261).into(),
         };
-        let expected_tlvs = vec![Ok(TypeLengthValue::new(
-            Type::CRC32C,
-            &[5, 5],
-        ))];
+        let expected_tlvs = vec![Ok(TypeLengthValue::new(Type::CRC32C, &[5, 5]))];
 
         let actual = Header::try_from(input.as_slice()).unwrap();
         let actual_tlvs: Vec<Result<TypeLengthValue<'_>, ParseError>> = actual.tlvs().collect();
