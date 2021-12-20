@@ -96,12 +96,6 @@ impl<'a> WriteToHeader for TypeLengthValues<'a> {
 
 impl WriteToHeader for [u8] {
     fn write_to(&self, writer: &mut Writer) -> io::Result<usize> {
-        (&self).write_to(writer)
-    }
-}
-
-impl WriteToHeader for &[u8] {
-    fn write_to(&self, writer: &mut Writer) -> io::Result<usize> {
         let slice = self.as_ref();
 
         if slice.len() > u16::MAX as usize {
@@ -111,6 +105,12 @@ impl WriteToHeader for &[u8] {
         writer.write_all(slice)?;
 
         Ok(slice.len())
+    }
+}
+
+impl<T: ?Sized + WriteToHeader> WriteToHeader for &T {
+    fn write_to(&self, writer: &mut Writer) -> io::Result<usize> {
+        (*self).write_to(writer)
     }
 }
 
@@ -192,7 +192,7 @@ impl Builder {
         self
     }
 
-    pub fn write_payload<T: Sized + WriteToHeader>(mut self, payload: T) -> io::Result<Self> {
+    pub fn write_payload<T: WriteToHeader>(mut self, payload: T) -> io::Result<Self> {
         self.write_header()?;
         self.write_internal(payload)?;
 
@@ -203,7 +203,7 @@ impl Builder {
         self.write_payload(TypeLengthValue::new(kind, value))
     }
 
-    fn write_internal<T: Sized + WriteToHeader>(&mut self, payload: T) -> io::Result<()> {
+    fn write_internal<T: WriteToHeader>(&mut self, payload: T) -> io::Result<()> {
         let mut writer = Writer::new(self.header.take().unwrap_or_default());
 
         payload.write_to(&mut writer)?;
