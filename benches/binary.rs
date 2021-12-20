@@ -1,9 +1,8 @@
-use criterion::Criterion;
-use criterion::{black_box, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
 
-use ppp::model::*;
-use ppp::{parse_header, to_bytes};
+use ppp::v2;
 
 fn ipv6_input() -> Vec<u8> {
     let prefix = b"\r\n\r\n\0\r\nQUIT\n";
@@ -49,50 +48,32 @@ fn ipv4_input() -> Vec<u8> {
 }
 
 fn benchmarks(c: &mut Criterion) {
-    let ipv6 = ipv6_input();
-    let ipv4 = ipv4_input();
+    let mut group = c.benchmark_group("PPP Binary");
 
-    c.bench_function("ppp binary IPv6 without TLVs", |b| {
-        b.iter(|| parse_header(black_box(ipv6.as_slice())))
-    });
+    let inputs = [
+        ("IPv4 with TLVs", ipv4_input()),
+        ("IPv6 without TLVs", ipv6_input()),
+    ];
 
-    c.bench_function("ppp binary IPv4 with TLVs", |b| {
-        b.iter(|| parse_header(black_box(ipv4.as_slice())))
-    });
+    for (id, input) in inputs {
+        group.bench_with_input(
+            BenchmarkId::new("v2::Header::try_from", id),
+            input.as_slice(),
+            |b, i| {
+                b.iter(|| v2::Header::try_from(i));
+            },
+        );
 
-    c.bench_function("ppp header to bytes binary IPv6 without TLVs", |b| {
-        b.iter(|| {
-            to_bytes(black_box(Header::new(
-                Version::Two,
-                Command::Proxy,
-                Protocol::Stream,
-                vec![],
-                (
-                    [
-                        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF2,
-                    ],
-                    [
-                        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1,
-                    ],
-                    80,
-                    443,
-                )
-                    .into(),
-            )))
-        })
-    });
+        group.bench_with_input(
+            BenchmarkId::new("v2::Header::as_bytes", id),
+            &v2::Header::try_from(input.as_slice()).unwrap(),
+            |b, h| {
+                b.iter(|| h.as_bytes());
+            },
+        );
+    }
 
-    c.bench_function("ppp header to bytes binary IPv4 with TLVs", |b| {
-        b.iter(|| {
-            to_bytes(black_box(Header::new(
-                Version::Two,
-                Command::Proxy,
-                Protocol::Stream,
-                vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
-                ([127, 0, 0, 1], [127, 0, 0, 2], 80, 443).into(),
-            )))
-        })
-    });
+    group.finish();
 }
 
 criterion_group! {
