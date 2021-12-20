@@ -34,8 +34,8 @@ fn ipv4_input() -> Vec<u8> {
 
     input.extend_from_slice(prefix);
     input.push(0x21);
-    input.push(0x21);
-    input.extend(&[0, 45]);
+    input.push(0x11);
+    input.extend(&[0, 26]);
     input.extend(&[127, 0, 0, 1]);
     input.extend(&[198, 168, 1, 1]);
     input.extend(&[0, 80]);
@@ -48,9 +48,6 @@ fn ipv4_input() -> Vec<u8> {
 }
 
 fn benchmarks(c: &mut Criterion) {
-    let ipv6 = ipv6_input();
-    let ipv4 = ipv4_input();
-
     let mut group = c.benchmark_group("PPP Binary");
 
     let inputs = [
@@ -63,7 +60,10 @@ fn benchmarks(c: &mut Criterion) {
             BenchmarkId::new("v2::Header::try_from", id),
             input.as_slice(),
             |b, i| {
-                b.iter(|| v2::Header::try_from(i));
+                b.iter(|| {
+                    let header = v2::Header::try_from(i).unwrap();
+                    header.tlvs().count();
+                });
             },
         );
 
@@ -71,7 +71,7 @@ fn benchmarks(c: &mut Criterion) {
             BenchmarkId::new("parse_header", id),
             input.as_slice(),
             |b, i| {
-                b.iter(|| parse_header(i));
+                b.iter(|| parse_header(i).unwrap());
             },
         );
     }

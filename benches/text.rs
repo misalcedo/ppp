@@ -21,7 +21,7 @@ fn benchmarks(c: &mut Criterion) {
             BenchmarkId::new("v1::Header::try_from", id),
             input.as_bytes(),
             |b, i| {
-                b.iter(|| v1::Header::try_from(i));
+                b.iter(|| v1::Header::try_from(i).unwrap());
             },
         );
     }
