@@ -24,8 +24,7 @@ impl HeaderBuilder {
 
         let length = self.length.unwrap_or_default();
 
-        self.header
-            .reserve(MINIMUM_LENGTH + length as usize);
+        self.header.reserve(MINIMUM_LENGTH + length as usize);
         self.header.extend(PROTOCOL_PREFIX);
         self.header.push(self.version_command);
         self.header.push(self.address_family_protocol);
@@ -94,9 +93,10 @@ impl HeaderBuilder {
         self.write_header();
 
         if self.length.is_none() {
-            let payload_length = u16::try_from(self.header[MINIMUM_LENGTH..].len()).unwrap_or_default();
+            let payload_length =
+                u16::try_from(self.header[MINIMUM_LENGTH..].len()).unwrap_or_default();
             let length = payload_length.to_be_bytes();
-            self.header[LENGTH..LENGTH+length.len()].copy_from_slice(length.as_slice());
+            self.header[LENGTH..LENGTH + length.len()].copy_from_slice(length.as_slice());
         };
 
         self.header
@@ -134,7 +134,9 @@ mod tests {
             Version::Two | Command::Proxy,
             AddressFamily::Unspecified | Protocol::Stream,
             None,
-        ).write(&[42]).build();
+        )
+        .write(&[42])
+        .build();
 
         assert_eq!(header, expected);
     }

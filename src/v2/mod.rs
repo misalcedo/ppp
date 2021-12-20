@@ -6,8 +6,8 @@ use crate::ip::{IPv4, IPv6};
 pub use error::ParseError;
 pub use model::{
     AddressFamily, Addresses, ClientType, Command, Header, Protocol, Type, TypeLengthValue,
-    TypeLengthValues, Unix, Version, ADDRESS_FAMILY_PROTOCOL, LENGTH, MINIMUM_LENGTH, MINIMUM_TLV_LENGTH,
-    PROTOCOL_PREFIX, VERSION_COMMAND,
+    TypeLengthValues, Unix, Version, ADDRESS_FAMILY_PROTOCOL, LENGTH, MINIMUM_LENGTH,
+    MINIMUM_TLV_LENGTH, PROTOCOL_PREFIX, VERSION_COMMAND,
 };
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -614,7 +614,10 @@ mod tests {
         input.extend([1, 187]);
         input.extend([1, 0, 1]);
 
-        assert_eq!(Header::try_from(&input[..]).unwrap_err(), ParseError::Partial(15, 17));
+        assert_eq!(
+            Header::try_from(&input[..]).unwrap_err(),
+            ParseError::Partial(15, 17)
+        );
     }
 
     #[test]
@@ -629,7 +632,10 @@ mod tests {
         input.extend([127, 0, 0, 2]);
         input.extend([0, 80]);
 
-        assert_eq!(Header::try_from(&input[..]).unwrap_err(), ParseError::Partial(10, 12));
+        assert_eq!(
+            Header::try_from(&input[..]).unwrap_err(),
+            ParseError::Partial(10, 12)
+        );
     }
 
     #[test]
@@ -658,10 +664,7 @@ mod tests {
         assert_eq!(actual_tlvs, vec![]);
         assert_eq!(actual.length(), 0);
         assert_eq!(actual.address_family(), AddressFamily::Unspecified);
-        assert_eq!(
-            actual.address_bytes(),
-            &[]
-        );
+        assert_eq!(actual.address_bytes(), &[]);
         assert_eq!(actual.tlv_bytes(), &[]);
         assert_eq!(actual.as_bytes(), header);
     }
@@ -692,7 +695,10 @@ mod tests {
         assert!(actual.tlvs().next().is_none());
         assert_eq!(actual.length(), 12);
         assert_eq!(actual.address_family(), AddressFamily::Unspecified);
-        assert_eq!(actual.address_bytes(), &[127, 0, 0, 1, 127, 0, 0, 2, 0, 80, 0xbb, 1]);
+        assert_eq!(
+            actual.address_bytes(),
+            &[127, 0, 0, 1, 127, 0, 0, 2, 0, 80, 0xbb, 1]
+        );
         assert_eq!(actual.tlv_bytes(), &[]);
         assert_eq!(actual.as_bytes(), input.as_slice());
     }
@@ -707,18 +713,33 @@ mod tests {
         input.extend([0, 0]);
         input.extend([0, 80]);
 
-        assert_eq!(Header::try_from(&input[..]).unwrap_err(), ParseError::InvalidAddresses(0, AddressFamily::IPv6.byte_length().unwrap_or_default()));
+        assert_eq!(
+            Header::try_from(&input[..]).unwrap_err(),
+            ParseError::InvalidAddresses(0, AddressFamily::IPv6.byte_length().unwrap_or_default())
+        );
     }
 
     #[test]
     fn not_prefixed() {
-        assert_eq!(Header::try_from(b"\r\n\r\n\x01\r\nQUIT\n".as_slice()).unwrap_err(), ParseError::Prefix);
-        assert_eq!(Header::try_from(b"\r\n\r\n\x01".as_slice()).unwrap_err(), ParseError::Prefix);
+        assert_eq!(
+            Header::try_from(b"\r\n\r\n\x01\r\nQUIT\n".as_slice()).unwrap_err(),
+            ParseError::Prefix
+        );
+        assert_eq!(
+            Header::try_from(b"\r\n\r\n\x01".as_slice()).unwrap_err(),
+            ParseError::Prefix
+        );
     }
 
     #[test]
     fn incomplete() {
-        assert_eq!(Header::try_from([0x0D, 0x0A, 0x0D, 0x0A, 0x00].as_slice()).unwrap_err(), ParseError::Incomplete(5));
-        assert_eq!(Header::try_from(PROTOCOL_PREFIX).unwrap_err(), ParseError::Incomplete(PROTOCOL_PREFIX.len()));
+        assert_eq!(
+            Header::try_from([0x0D, 0x0A, 0x0D, 0x0A, 0x00].as_slice()).unwrap_err(),
+            ParseError::Incomplete(5)
+        );
+        assert_eq!(
+            Header::try_from(PROTOCOL_PREFIX).unwrap_err(),
+            ParseError::Incomplete(PROTOCOL_PREFIX.len())
+        );
     }
 }
