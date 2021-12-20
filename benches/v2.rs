@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main};
 use criterion::{BenchmarkId, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
 
@@ -75,6 +75,36 @@ fn benchmarks(c: &mut Criterion) {
             },
         );
     }
+
+    group.bench_function(
+        BenchmarkId::new("v2::HeaderBuilder::build", "IPv6 with TLVs with length"),
+        |b| {
+            let source_address = [
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                0xF2,
+            ];
+            let destination_address = [
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                0xF1,
+            ];
+            let addresses =
+                v2::Addresses::IPv6(v2::IPv6::new(source_address, destination_address, 80, 443));
+                
+            b.iter(|| {
+                black_box(
+                    v2::Header::builder(
+                        v2::Version::Two | v2::Command::Local,
+                        v2::AddressFamily::IPv6 | v2::Protocol::Unspecified,
+                        Some(60),
+                    )
+                    .write_addresses(addresses)
+                    .write_tlvs(vec![(v2::Type::NoOp, [0].as_slice())])
+                    .write_tlv(v2::Type::NoOp, [42].as_slice())
+                    .build(),
+                );
+            });
+        },
+    );
 
     group.finish();
 }
