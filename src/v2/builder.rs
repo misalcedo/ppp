@@ -53,7 +53,7 @@ pub trait WriteToHeader {
         let mut writer = Writer::default();
 
         self.write_to(&mut writer)?;
-        
+
         Ok(writer.finish())
     }
 }
@@ -247,11 +247,11 @@ impl Builder {
         header.push(self.address_family_protocol);
         header.extend_from_slice(length.to_be_bytes().as_slice());
 
+        self.header = Some(header);
+
         if let Some(addresses) = self.addresses {
             self.write_internal(addresses)?;
         }
-
-        self.header = Some(header);
 
         Ok(())
     }
@@ -459,7 +459,7 @@ mod tests {
         expected.extend(source_address);
         expected.extend(destination_address);
         expected.extend([0, 80, 1, 187]);
-        expected.extend([4, 0, 1, 0, 4, 0, 1, 42]);
+        expected.extend([4, 0, 1, 0, 4, 0, 1, 0, 4, 0, 1, 42]);
 
         let header = Builder::new(
             Version::Two | Command::Local,
