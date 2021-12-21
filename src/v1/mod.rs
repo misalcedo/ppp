@@ -37,7 +37,11 @@ fn parse_header(header: &str) -> Result<Header, ParseError> {
         .filter(|s| !s.is_empty())
         .ok_or(ParseError::MissingPrefix)?;
 
-    matches_part(header, prefix, PROTOCOL_PREFIX)?.ok_or(ParseError::InvalidPrefix)?;
+    if PROTOCOL_PREFIX.starts_with(prefix) && header.ends_with(prefix) {
+        return Err(ParseError::Partial);
+    } else if prefix != PROTOCOL_PREFIX {
+        return Err(ParseError::InvalidPrefix);
+    }
 
     let addresses = match iterator.next() {
         Some(TCP4) => {
@@ -88,21 +92,6 @@ fn parse_header(header: &str) -> Result<Header, ParseError> {
     }
 
     Ok(Header { header, addresses })
-}
-
-/// Performs a partial match of a string against the expected next portion of the protocol.
-fn matches_part<'a, 'b>(
-    header: &'a str,
-    actual: &'a str,
-    expected: &'b str,
-) -> Result<Option<&'a str>, ParseError> {
-    if actual == expected {
-        Ok(Some(actual))
-    } else if expected.starts_with(actual) && header.ends_with(actual) {
-        Err(ParseError::Partial)
-    } else {
-        Ok(None)
-    }
 }
 
 /// Parses the addresses and ports from a PROXY protocol header for IPv4 and IPv6.
