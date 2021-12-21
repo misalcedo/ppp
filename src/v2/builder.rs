@@ -1,6 +1,6 @@
 use crate::v2::{
-    Addresses, Protocol, Type, TypeLengthValue, TypeLengthValues, LENGTH, MINIMUM_LENGTH, MINIMUM_TLV_LENGTH,
-    PROTOCOL_PREFIX,
+    Addresses, Protocol, Type, TypeLengthValue, TypeLengthValues, LENGTH, MINIMUM_LENGTH,
+    MINIMUM_TLV_LENGTH, PROTOCOL_PREFIX,
 };
 use std::io::{self, Write};
 
@@ -139,13 +139,13 @@ macro_rules! impl_write_to_header {
         impl WriteToHeader for $t {
             fn write_to(&self, writer: &mut Writer) -> io::Result<usize> {
                 let bytes = self.to_be_bytes();
-        
+
                 writer.write_all(bytes.as_slice())?;
-                
+
                 Ok(bytes.len())
             }
         }
-    }
+    };
 }
 
 impl_write_to_header!(u8);
@@ -262,7 +262,7 @@ impl Builder {
         let mut header = self.header.take().unwrap_or_default();
 
         if self.length.is_some() {
-            return Ok(header)
+            return Ok(header);
         }
 
         if let Ok(payload_length) = u16::try_from(header[MINIMUM_LENGTH..].len()) {
@@ -280,7 +280,6 @@ mod tests {
     use super::*;
     use crate::v2::{AddressFamily, Command, IPv4, IPv6, Protocol, Type, Unix, Version};
 
-
     #[test]
     fn build_length_too_small() {
         let mut expected = Vec::from(PROTOCOL_PREFIX);
@@ -289,9 +288,12 @@ mod tests {
         let actual = Builder::new(
             Version::Two | Command::Proxy,
             AddressFamily::IPv4 | Protocol::Datagram,
-        ).set_length(1)
-        .write_payload(1u32).unwrap()
-        .build().unwrap();
+        )
+        .set_length(1)
+        .write_payload(1u32)
+        .unwrap()
+        .build()
+        .unwrap();
 
         assert_eq!(actual, expected);
     }
@@ -302,7 +304,8 @@ mod tests {
             Version::Two | Command::Proxy,
             AddressFamily::IPv4 | Protocol::Datagram,
         )
-        .write_payload(vec![0u8; (u16::MAX as usize) + 1].as_slice()).unwrap_err();
+        .write_payload(vec![0u8; (u16::MAX as usize) + 1].as_slice())
+        .unwrap_err();
 
         assert_eq!(error.kind(), io::ErrorKind::WriteZero);
     }
@@ -316,7 +319,8 @@ mod tests {
             Version::Two | Command::Proxy,
             AddressFamily::Unspecified | Protocol::Stream,
         )
-        .build().unwrap();
+        .build()
+        .unwrap();
 
         assert_eq!(header, expected);
     }
@@ -330,8 +334,10 @@ mod tests {
             Version::Two | Command::Proxy,
             AddressFamily::Unspecified | Protocol::Stream,
         )
-        .write_payload(42u8).unwrap()
-        .build().unwrap();
+        .write_payload(42u8)
+        .unwrap()
+        .build()
+        .unwrap();
 
         assert_eq!(header, expected);
     }
@@ -347,9 +353,12 @@ mod tests {
         let header = Builder::new(
             Version::Two | Command::Proxy,
             AddressFamily::IPv4 | Protocol::Datagram,
-        ).set_length(addresses.len() as u16)
-        .write_payload(addresses).unwrap()
-        .build().unwrap();
+        )
+        .set_length(addresses.len() as u16)
+        .write_payload(addresses)
+        .unwrap()
+        .build()
+        .unwrap();
 
         assert_eq!(header, expected);
     }
@@ -373,9 +382,10 @@ mod tests {
         let header = Builder::with_addresses(
             Version::Two | Command::Local,
             Protocol::Unspecified,
-            IPv6::new(source_address, destination_address, 80, 443)
+            IPv6::new(source_address, destination_address, 80, 443),
         )
-        .build().unwrap();
+        .build()
+        .unwrap();
 
         assert_eq!(header, expected);
     }
@@ -396,8 +406,10 @@ mod tests {
             AddressFamily::Unix | Protocol::Stream,
         )
         .reserve_capacity(addresses.len())
-        .write_payload(addresses).unwrap()
-        .build().unwrap();
+        .write_payload(addresses)
+        .unwrap()
+        .build()
+        .unwrap();
 
         assert_eq!(header, expected);
     }
@@ -410,14 +422,13 @@ mod tests {
         ]);
 
         let addresses: Addresses = IPv4::new([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into();
-        let header = Builder::with_addresses(
-            Version::Two | Command::Proxy,
-            Protocol::Datagram,
-            addresses
-        )
-        .reserve_capacity(5)
-        .write_tlv(Type::NoOp, [0, 42].as_slice()).unwrap()
-        .build().unwrap();
+        let header =
+            Builder::with_addresses(Version::Two | Command::Proxy, Protocol::Datagram, addresses)
+                .reserve_capacity(5)
+                .write_tlv(Type::NoOp, [0, 42].as_slice())
+                .unwrap()
+                .build()
+                .unwrap();
 
         assert_eq!(header, expected);
     }
@@ -434,11 +445,16 @@ mod tests {
             Version::Two | Command::Proxy,
             AddressFamily::IPv4 | Protocol::Datagram,
         )
-        .write_payload(addresses).unwrap()
-        .write_payload(Type::SSL).unwrap()
-        .write_payload(5u16).unwrap()
-        .write_payload([0u8; 5].as_slice()).unwrap()
-        .build().unwrap();
+        .write_payload(addresses)
+        .unwrap()
+        .write_payload(Type::SSL)
+        .unwrap()
+        .write_payload(5u16)
+        .unwrap()
+        .write_payload([0u8; 5].as_slice())
+        .unwrap()
+        .build()
+        .unwrap();
 
         assert_eq!(header, expected);
     }
@@ -465,11 +481,16 @@ mod tests {
             Version::Two | Command::Local,
             AddressFamily::IPv6 | Protocol::Unspecified,
         )
-        .write_payload(addresses).unwrap()
-        .write_tlv(Type::NoOp, [0].as_slice()).unwrap()
-        .write_tlv(Type::NoOp, [0].as_slice()).unwrap()
-        .write_tlv(Type::NoOp, [42].as_slice()).unwrap()
-        .build().unwrap();
+        .write_payload(addresses)
+        .unwrap()
+        .write_tlv(Type::NoOp, [0].as_slice())
+        .unwrap()
+        .write_tlv(Type::NoOp, [0].as_slice())
+        .unwrap()
+        .write_tlv(Type::NoOp, [42].as_slice())
+        .unwrap()
+        .build()
+        .unwrap();
 
         assert_eq!(header, expected);
     }
@@ -491,9 +512,12 @@ mod tests {
             AddressFamily::Unix | Protocol::Stream,
         )
         .set_length(216)
-        .write_payload(addresses).unwrap()
-        .write_tlv(Type::SSL, &[]).unwrap()
-        .build().unwrap();
+        .write_payload(addresses)
+        .unwrap()
+        .write_tlv(Type::SSL, &[])
+        .unwrap()
+        .build()
+        .unwrap();
 
         assert_eq!(header, expected);
     }

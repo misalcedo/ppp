@@ -259,6 +259,15 @@ pub struct TypeLengthValue<'a> {
     pub value: &'a [u8],
 }
 
+impl<'a, T: Into<u8>> From<(T, &'a [u8])> for TypeLengthValue<'a> {
+    fn from((kind, value): (T, &'a [u8])) -> Self {
+        TypeLengthValue {
+            kind: kind.into(),
+            value,
+        }
+    }
+}
+
 impl<'a> TypeLengthValue<'a> {
     pub fn new<T: Into<u8>>(kind: T, value: &'a [u8]) -> Self {
         TypeLengthValue {
