@@ -151,22 +151,27 @@ impl<'a> fmt::Display for Header<'a> {
 }
 
 impl<'a> Header<'a> {
+    /// The length of this `Header`'s payload in bytes.
     pub fn length(&self) -> usize {
         self.header[MINIMUM_LENGTH..].len()
     }
 
+    /// The total length of this `Header` in bytes.
     pub fn len(&self) -> usize {
         self.header.len()
     }
 
+    /// Tests whether this `Header`'s underylying byte slice is empty.
     pub fn is_empty(&self) -> bool {
         self.header.is_empty()
     }
 
+    /// The `AddressFamily` of this `Header`.
     pub fn address_family(&self) -> AddressFamily {
         self.addresses.address_family()
     }
 
+    /// The length in bytes of the adress portion of the payload.
     fn address_bytes_end(&self) -> usize {
         let length = self.length();
         let address_bytes = self.address_family().byte_length().unwrap_or(length);
@@ -174,14 +179,17 @@ impl<'a> Header<'a> {
         MINIMUM_LENGTH + std::cmp::min(address_bytes, length)
     }
 
+    /// The bytes of the adress portion of the payload.
     pub fn address_bytes(&self) -> &'a [u8] {
         &self.header[MINIMUM_LENGTH..self.address_bytes_end()]
     }
 
+    /// The bytes of the `TypeLengthValue` portion of the payload.
     pub fn tlv_bytes(&self) -> &'a [u8] {
         &self.header[self.address_bytes_end()..]
     }
 
+    /// An `Iterator` of `TypeLengthValue`s.
     pub fn tlvs(&self) -> TypeLengthValues<'a> {
         TypeLengthValues {
             bytes: self.tlv_bytes(),
@@ -189,12 +197,14 @@ impl<'a> Header<'a> {
         }
     }
 
+    /// The underlying byte slice this `Header` is built on.
     pub fn as_bytes(&self) -> &'a [u8] {
         self.header
     }
 }
 
 impl<'a> TypeLengthValues<'a> {
+    /// The underlying byte slice of the `TypeLengthValue`s portion of the `Header` payload.
     pub fn as_bytes(&self) -> &'a [u8] {
         self.bytes
     }
@@ -240,10 +250,12 @@ impl<'a> Iterator for TypeLengthValues<'a> {
 }
 
 impl<'a> TypeLengthValues<'a> {
+    /// The number of bytes in the `TypeLengthValue` portion of the `Header`.
     pub fn len(&self) -> u16 {
         self.bytes.len() as u16
     }
 
+    /// Whether there are any bytes to be interpreted as `TypeLengthValue`s.
     pub fn is_empty(&self) -> bool {
         self.bytes.is_empty()
     }
@@ -274,6 +286,8 @@ impl BitOr<Protocol> for AddressFamily {
 }
 
 impl AddressFamily {
+    /// The length in bytes for this `AddressFamily`.
+    /// `AddressFamily::Unspecified` does not require any bytes, and is represented as `None`.
     pub fn byte_length(&self) -> Option<usize> {
         match self {
             AddressFamily::IPv4 => Some(IPV4_ADDRESSES_BYTES),
@@ -331,6 +345,7 @@ impl From<Unix> for Addresses {
 }
 
 impl Addresses {
+    /// The `AddressFamily` for this `Addresses`.
     pub fn address_family(&self) -> AddressFamily {
         match self {
             Addresses::Unspecified => AddressFamily::Unspecified,
@@ -340,16 +355,20 @@ impl Addresses {
         }
     }
 
+    /// The length in bytes of the `Addresses` in the `Header`'s payload.
     pub fn len(&self) -> usize {
         self.address_family().byte_length().unwrap_or_default()
     }
 
+    /// Tests whether the `Addresses` consume any space in the `Header`'s payload.
+    /// `AddressFamily::Unspecified` does not require any bytes, and always returns true.
     pub fn is_empty(&self) -> bool {
         self.address_family().byte_length().is_none()
     }
 }
 
 impl Unix {
+    /// Creates a new instance of a source and destiantion address pair for Unix sockets.
     pub fn new(source: [u8; 108], destination: [u8; 108]) -> Self {
         Unix {
             source,
@@ -376,6 +395,8 @@ impl<'a, T: Into<u8>> From<(T, &'a [u8])> for TypeLengthValue<'a> {
 }
 
 impl<'a> TypeLengthValue<'a> {
+    /// Creates a new instance of a `TypeLengthValue`, where the length is determine by the length of the byte slice.
+   /// No check is done to ensure the byte slice's length fits in a `u16`.
     pub fn new<T: Into<u8>>(kind: T, value: &'a [u8]) -> Self {
         TypeLengthValue {
             kind: kind.into(),
@@ -383,10 +404,12 @@ impl<'a> TypeLengthValue<'a> {
         }
     }
 
+    /// The length in bytes of this `TypeLengthValue`'s value.
     pub fn len(&self) -> usize {
         self.value.len()
     }
 
+    /// Tests whether the value of this `TypeLengthValue` is empty.
     pub fn is_empty(&self) -> bool {
         self.value.is_empty()
     }
