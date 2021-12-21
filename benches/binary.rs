@@ -1,5 +1,7 @@
-use criterion::{black_box, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main};
 use criterion::{BenchmarkId, Criterion};
+
+#[cfg(unix)]
 use pprof::criterion::{Output, PProfProfiler};
 
 use ppp::v2;
@@ -84,58 +86,62 @@ fn benchmarks(c: &mut Criterion) {
     let addresses =
         v2::Addresses::IPv6(v2::IPv6::new(source_address, destination_address, 80, 443));
 
-    group.bench_function(
+    group.bench_with_input(
         BenchmarkId::new("v2::Builder::build", "IPv6 with TLVs"),
-        |b| {
+        &addresses,
+        |b, a| {
             b.iter(|| {
-                black_box(
-                    v2::Builder::new(
-                        v2::Version::Two | v2::Command::Local,
-                        v2::AddressFamily::IPv6 | v2::Protocol::Unspecified,
-                    )
-                    .write_payload(addresses)
-                    .unwrap()
-                    .write_payloads(vec![(v2::Type::NoOp, [0].as_slice())])
-                    .unwrap()
-                    .write_tlv(v2::Type::NoOp, [42].as_slice())
-                    .unwrap()
-                    .build()
-                    .unwrap(),
-                );
-            });
+                v2::Builder::new(
+                    v2::Version::Two | v2::Command::Local,
+                    v2::AddressFamily::IPv6 | v2::Protocol::Unspecified,
+                )
+                .write_payload(a)
+                .unwrap()
+                .write_payloads(vec![(v2::Type::NoOp, [0].as_slice())])
+                .unwrap()
+                .write_tlv(v2::Type::NoOp, [42].as_slice())
+                .unwrap()
+                .build()
+                .unwrap()
+            })
         },
     );
 
-    group.bench_function(
+    group.bench_with_input(
         BenchmarkId::new("v2::Builder::build", "IPv6 with TLVs with length"),
-        |b| {
+        &addresses,
+        |b, &a| {
             b.iter(|| {
-                black_box(
-                    v2::Builder::with_addresses(
-                        v2::Version::Two | v2::Command::Local,
-                        v2::Protocol::Unspecified,
-                        addresses,
-                    )
-                    .reserve_capacity(8)
-                    .write_payloads([
-                        (v2::Type::NoOp, [0].as_slice()),
-                        (v2::Type::NoOp, [42].as_slice()),
-                    ])
-                    .unwrap()
-                    .build()
-                    .unwrap(),
-                );
-            });
+                v2::Builder::with_addresses(
+                    v2::Version::Two | v2::Command::Local,
+                    v2::Protocol::Unspecified,
+                    a,
+                )
+                .reserve_capacity(8)
+                .write_payloads([
+                    (v2::Type::NoOp, [0].as_slice()),
+                    (v2::Type::NoOp, [42].as_slice()),
+                ])
+                .unwrap()
+                .build()
+                .unwrap()
+            })
         },
     );
 
     group.finish();
 }
 
+#[cfg(unix)]
 criterion_group! {
     name = benches;
-    config = Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
+    config = {
+        Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
+    };
     targets = benchmarks
 }
+
+#[cfg(not(unix))]
+criterion_group!(benches, benchmarks);
 
 criterion_main!(benches);

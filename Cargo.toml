@@ -18,6 +18,8 @@ thiserror = "1"
 
 [dev-dependencies]
 criterion = "0.3"
+
+[target.'cfg(unix)'.dev-dependencies]
 pprof = { version = "0.4", features = ["criterion", "flamegraph", "protobuf"] }
 
 [[bench]]

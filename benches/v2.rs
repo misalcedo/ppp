@@ -1,8 +1,9 @@
 use criterion::{criterion_group, criterion_main};
 use criterion::{BenchmarkId, Criterion};
-use pprof::criterion::{Output, PProfProfiler};
-
 use ppp::v1;
+
+#[cfg(unix)]
+use pprof::criterion::{Output, PProfProfiler};
 
 fn benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("PPP Binary");
@@ -28,10 +29,16 @@ fn benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
+#[cfg(unix)]
 criterion_group! {
     name = benches;
-    config = Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
+    config = {
+        Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
+    };
     targets = benchmarks
 }
+
+#[cfg(not(unix))]
+criterion_group!(benches, benchmarks);
 
 criterion_main!(benches);
