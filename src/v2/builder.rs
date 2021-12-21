@@ -20,7 +20,13 @@ pub struct Builder {
 }
 
 impl Writer {
-    fn new(bytes: Vec<u8>) -> Self {
+    pub fn finish(self) -> Vec<u8> {
+        self.bytes
+    }
+}
+
+impl From<Vec<u8>> for Writer {
+    fn from(bytes: Vec<u8>) -> Self {
         Writer { bytes }
     }
 }
@@ -42,6 +48,14 @@ impl Write for Writer {
 
 pub trait WriteToHeader {
     fn write_to(&self, writer: &mut Writer) -> io::Result<usize>;
+
+    fn to_bytes(&self) -> io::Result<Vec<u8>> {
+        let mut writer = Writer::default();
+
+        self.write_to(&mut writer)?;
+        
+        Ok(writer.finish())
+    }
 }
 
 impl WriteToHeader for Addresses {
@@ -204,11 +218,11 @@ impl Builder {
     }
 
     fn write_internal<T: WriteToHeader>(&mut self, payload: T) -> io::Result<()> {
-        let mut writer = Writer::new(self.header.take().unwrap_or_default());
+        let mut writer = Writer::from(self.header.take().unwrap_or_default());
 
         payload.write_to(&mut writer)?;
 
-        self.header = Some(writer.bytes);
+        self.header = Some(writer.finish());
 
         Ok(())
     }
