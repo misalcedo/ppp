@@ -32,12 +32,12 @@ impl From<Vec<u8>> for Writer {
 }
 
 impl Write for Writer {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
         if self.bytes.len() > (u16::MAX as usize) + MINIMUM_LENGTH {
             Err(io::ErrorKind::WriteZero.into())
         } else {
-            self.bytes.extend(buf);
-            Ok(buf.len())
+            self.bytes.extend_from_slice(buffer);
+            Ok(buffer.len())
         }
     }
 
