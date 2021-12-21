@@ -1,11 +1,22 @@
+//! The data model to represent the test PROXY protocol header.
+
 use crate::ip::{IPv4, IPv6};
 use std::fmt;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
-pub const PROTOCOL_SUFFIX: &str = "\r\n";
+/// The prefix of the PROXY protocol header.
 pub const PROTOCOL_PREFIX: &str = "PROXY";
+
+/// The suffix of the PROXY protocol header.
+pub const PROTOCOL_SUFFIX: &str = "\r\n";
+
+/// TCP protocol with IPv4 address family. 
 pub const TCP4: &str = "TCP4";
+
+/// TCP protocol with IPv6 address family. 
 pub const TCP6: &str = "TCP6";
+
+/// Unknown protocol and address family. Address portion of the header should be ignored.
 pub const UNKNOWN: &str = "UNKNOWN";
 
 /// The separator of the header parts.

@@ -6,11 +6,19 @@ mod ip;
 pub mod v1;
 pub mod v2;
 
+/// The canonical way to determin when a streamed header should be retried in a streaming context.
+/// The protocol states that servers may choose to support partial headers or to close the connection if the header is not preset all at once.
 pub trait PartialResult {
+    /// Tests whether this `Result` is successful or whether the error is terminal.
+    /// A terminal error will not result in a success even with more bytes.
+    /// Retrying with the same -- or more -- input will not change the result.
     fn is_complete(&self) -> bool {
         !self.is_incomplete()
     }
 
+    /// Tests whether this `Result` is incomplete.
+    /// An action that leads to an incomplete result may have a different result with more bytes.
+    /// Retrying with the same input will not change the result.
     fn is_incomplete(&self) -> bool;
 }
 

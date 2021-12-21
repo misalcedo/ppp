@@ -1,3 +1,6 @@
+//! Errors for the binary proxy protocol.
+
+/// An error in parsing a binary PROXY protocol header.
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ParseError {
     #[error("Expected header to the protocol prefix plus 4 bytes after the prefix (length {0}).")]

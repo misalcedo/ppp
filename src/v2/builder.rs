@@ -1,14 +1,55 @@
+//! Builder pattern to generate both valid and invalid PROXY protocol v2 headers.
+
 use crate::v2::{
     Addresses, Protocol, Type, TypeLengthValue, TypeLengthValues, LENGTH, MINIMUM_LENGTH,
     MINIMUM_TLV_LENGTH, PROTOCOL_PREFIX,
 };
 use std::io::{self, Write};
 
+/// `Write` interface for the builder's internal buffer.
+/// Can be used to turn header parts into bytes.
+/// 
+/// ## Examples
+/// ```rust
+/// use ppp::v2::{Addresses, Writer, WriteToHeader};
+/// use std::net::SocketAddr;
+/// 
+/// let addresses: Addresses = ("127.0.0.1:80".parse::<SocketAddr>().unwrap(), "192.168.1.1:443".parse::<SocketAddr>().unwrap()).into();
+/// let mut writer = Writer::default();
+/// 
+/// addresses.write_to(&mut writer).unwrap();
+/// 
+/// assert_eq!(addresses.to_bytes().unwrap(), writer.finish());
+/// ``` 
 #[derive(Debug, Default)]
 pub struct Writer {
     bytes: Vec<u8>,
 }
 
+/// Implementation of the builder pattern for PROXY protocol v2 headers.
+/// Supports both valid and invalid headers via the `write_payload` and `write_payloads` functions.
+/// 
+/// ## Examples
+/// ```rust
+/// use ppp::v2::{Addresses, AddressFamily, Builder, Command, IPv4, Protocol, PROTOCOL_PREFIX, Type, Version};
+/// let mut expected = Vec::from(PROTOCOL_PREFIX);
+/// expected.extend([
+///    0x21, 0x12, 0, 16, 127, 0, 0, 1, 192, 168, 1, 1, 0, 80, 1, 187, 4, 0, 1, 42
+/// ]);
+///
+/// let addresses: Addresses = IPv4::new([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into();
+/// let header = Builder::with_addresses(
+///     Version::Two | Command::Proxy,
+///     Protocol::Datagram,
+///     addresses
+/// )
+/// .write_tlv(Type::NoOp, [42].as_slice())
+/// .unwrap()
+/// .build()
+/// .unwrap();
+///
+/// assert_eq!(header, expected);
+/// ```
 #[derive(Debug)]
 pub struct Builder {
     header: Option<Vec<u8>>,
@@ -20,6 +61,8 @@ pub struct Builder {
 }
 
 impl Writer {
+    /// Consumes this `Writer` and returns the buffer holding the proxy protocol header payloads.
+    /// The returned bytes are not guaranteed to be a valid proxy protocol header.
     pub fn finish(self) -> Vec<u8> {
         self.bytes
     }
@@ -46,9 +89,14 @@ impl Write for Writer {
     }
 }
 
+/// Defines how to write a type as part of a binary PROXY protocol header.
 pub trait WriteToHeader {
+    /// Write this instance to the given `Writer`. 
+    /// The `Writer` returns an IO error when an individual byte slice is longer than `u16::MAX`. 
+    /// However, the total length of the buffer may exceed `u16::MAX`.
     fn write_to(&self, writer: &mut Writer) -> io::Result<usize>;
 
+    /// Writes this instance to a temporary buffer and returns the buffer.
     fn to_bytes(&self) -> io::Result<Vec<u8>> {
         let mut writer = Writer::default();
 
@@ -180,6 +228,9 @@ impl_write_to_header!(i128);
 impl_write_to_header!(isize);
 
 impl Builder {
+    /// Creates an instance of a `Builder` with the given header bytes.
+    /// No guarantee is made that any address bytes written as a payload will match the header's address family.
+    /// The length is determined on `build` unless `set_length` is called to set an explicit value.
     pub fn new(version_command: u8, address_family_protocol: u8) -> Self {
         Builder {
             header: None,
@@ -191,6 +242,9 @@ impl Builder {
         }
     }
 
+    /// Creates an instance of a `Builder` with the given header bytes and `Addresses`.
+    /// The address family is determined from the variant of the `Addresses` given.
+    /// The length is determined on `build` unless `set_length` is called to set an explicit value.
     pub fn with_addresses<T: Into<Addresses>>(
         version_command: u8,
         protocol: Protocol,
@@ -208,6 +262,9 @@ impl Builder {
         }
     }
 
+    /// Reserves the requested additional capacity in the underlying buffer.
+    /// Helps to prevent resizing the underlying buffer when called before `write_payload`, `write_payloads`.
+    /// When called after `write_payload`, `write_payloads`, useful as a hint on how to resize the buffer.
     pub fn reserve_capacity(mut self, capacity: usize) -> Self {
         match self.header {
             None => self.additional_capacity += capacity,
@@ -217,11 +274,15 @@ impl Builder {
         self
     }
 
+    /// Overrides the length in the header.
+    /// When set to `Some` value, the length may be smaller or larger than the actual payload in the buffer. 
     pub fn set_length<T: Into<Option<u16>>>(mut self, length: T) -> Self {
         self.length = length.into();
         self
     }
 
+    /// Writes a iteratable set of payloads in order to the buffer.
+    /// No bytes are added by this `Builder` as a delimiter.
     pub fn write_payloads<T, I, II>(mut self, payloads: II) -> io::Result<Self>
     where
         T: WriteToHeader,
@@ -241,6 +302,8 @@ impl Builder {
         Ok(self)
     }
 
+    /// Writes a single payload to the buffer.
+    /// No surrounding bytes (terminal or otherwise) are added by this `Builder`.
     pub fn write_payload<T: WriteToHeader>(mut self, payload: T) -> io::Result<Self> {
         self.write_header()?;
         self.write_internal(payload)?;
@@ -248,10 +311,15 @@ impl Builder {
         Ok(self)
     }
 
+    /// Writes a Type-Length-Value as a payload.
+    /// No surrounding bytes (terminal or otherwise) are added by this `Builder`.
+    /// The length is determined by the length of the slice.
+    /// An error is returned when the length of the slice exceeeds `u16::MAX`.
     pub fn write_tlv(self, kind: impl Into<u8>, value: &[u8]) -> io::Result<Self> {
         self.write_payload(TypeLengthValue::new(kind, value))
     }
 
+    /// Writes to the underlying buffer without first writing the header bytes.
     fn write_internal<T: WriteToHeader>(&mut self, payload: T) -> io::Result<()> {
         let mut writer = Writer::from(self.header.take().unwrap_or_default());
 
@@ -262,6 +330,8 @@ impl Builder {
         Ok(())
     }
 
+    /// Writes the protocol prefix, version, command, address family, protocol, and optional addresses to the buffer.
+    /// Does nothing if the buffer is not empty.
     fn write_header(&mut self) -> io::Result<()> {
         if self.header.is_some() {
             return Ok(());
@@ -285,6 +355,8 @@ impl Builder {
         Ok(())
     }
 
+    /// Builds the header and returns the underylying buffer.
+    /// If no length was explicitly set, returns an error when the length of the payload portion exceeds `u16::MAX`.
     pub fn build(mut self) -> io::Result<Vec<u8>> {
         self.write_header()?;
 

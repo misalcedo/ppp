@@ -1,9 +1,13 @@
+//! Version 2 of the HAProxy protocol (binary version).
+//!
+//! See <https://haproxy.org/download/1.8/doc/proxy-protocol.txt>
+ 
 mod builder;
 mod error;
 mod model;
 
 pub use crate::ip::{IPv4, IPv6};
-pub use builder::{Builder, Writer};
+pub use builder::{Builder, Writer, WriteToHeader};
 pub use error::ParseError;
 pub use model::{
     AddressFamily, Addresses, Command, Header, Protocol, Type, TypeLengthValue, TypeLengthValues,

@@ -1,6 +1,6 @@
+//! Errors for the text proxy protocol.
+
 /// An error in parsing a text PROXY protocol header.
-/// Partial headers are  missing their new line suffix (`MissingNewLine`).
-/// All other parse errors are considered non-retryable (i.e. more data will not change the outcome).
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ParseError {
     #[error("Header must start with 'PROXY'.")]
