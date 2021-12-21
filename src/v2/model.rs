@@ -1,5 +1,7 @@
 use crate::ip::{IPv4, IPv6};
 use crate::v2::error::ParseError;
+use std::fmt;
+use std::net::SocketAddr;
 use std::ops::BitOr;
 
 pub const PROTOCOL_PREFIX: &[u8] = b"\r\n\r\n\0\r\nQUIT\n";
@@ -21,9 +23,30 @@ pub struct Header<'a> {
     pub addresses: Addresses,
 }
 
+impl<'a> fmt::Display for Header<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:?} {:#X} {:#X} ({} bytes)",
+            PROTOCOL_PREFIX,
+            self.version | self.command,
+            self.protocol | self.address_family(),
+            self.length()
+        )
+    }
+}
+
 impl<'a> Header<'a> {
     pub fn length(&self) -> usize {
         self.header[MINIMUM_LENGTH..].len()
+    }
+
+    pub fn len(&self) -> usize {
+        self.header.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.header.is_empty()
     }
 
     pub fn address_family(&self) -> AddressFamily {
@@ -184,6 +207,28 @@ pub enum Addresses {
     IPv4(IPv4),
     IPv6(IPv6),
     Unix(Unix),
+}
+
+impl From<(SocketAddr, SocketAddr)> for Addresses {
+    fn from(addresses: (SocketAddr, SocketAddr)) -> Self {
+        match addresses {
+            (SocketAddr::V4(source), SocketAddr::V4(destination)) => IPv4::new(
+                *source.ip(),
+                *destination.ip(),
+                source.port(),
+                destination.port(),
+            )
+            .into(),
+            (SocketAddr::V6(source), SocketAddr::V6(destination)) => IPv6::new(
+                *source.ip(),
+                *destination.ip(),
+                source.port(),
+                destination.port(),
+            )
+            .into(),
+            _ => Addresses::Unspecified,
+        }
+    }
 }
 
 impl From<IPv4> for Addresses {

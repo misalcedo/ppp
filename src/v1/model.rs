@@ -1,6 +1,6 @@
 use crate::ip::{IPv4, IPv6};
 use std::fmt;
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
 pub const PROTOCOL_SUFFIX: &str = "\r\n";
 pub const PROTOCOL_PREFIX: &str = "PROXY";
@@ -227,6 +227,28 @@ impl Addresses {
 impl Default for Addresses {
     fn default() -> Self {
         Addresses::Unknown
+    }
+}
+
+impl From<(SocketAddr, SocketAddr)> for Addresses {
+    fn from(addresses: (SocketAddr, SocketAddr)) -> Self {
+        match addresses {
+            (SocketAddr::V4(source), SocketAddr::V4(destination)) => IPv4::new(
+                *source.ip(),
+                *destination.ip(),
+                source.port(),
+                destination.port(),
+            )
+            .into(),
+            (SocketAddr::V6(source), SocketAddr::V6(destination)) => IPv6::new(
+                *source.ip(),
+                *destination.ip(),
+                source.port(),
+                destination.port(),
+            )
+            .into(),
+            _ => Addresses::Unknown,
+        }
     }
 }
 
