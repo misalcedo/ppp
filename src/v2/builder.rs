@@ -36,7 +36,7 @@ impl Write for Writer {
         if self.bytes.len() > (u16::MAX as usize) + MINIMUM_LENGTH {
             Err(io::ErrorKind::WriteZero.into())
         } else {
-            self.bytes.extend_from_slice(buf);
+            self.bytes.extend(buf);
             Ok(buf.len())
         }
     }

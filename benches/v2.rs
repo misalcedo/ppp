@@ -2,7 +2,7 @@ use criterion::{black_box, criterion_group, criterion_main};
 use criterion::{BenchmarkId, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
 
-use ppp::{parse_header, v2};
+use ppp::v2;
 
 fn ipv6_input() -> Vec<u8> {
     let prefix = b"\r\n\r\n\0\r\nQUIT\n";
@@ -64,14 +64,6 @@ fn benchmarks(c: &mut Criterion) {
                     let header = v2::Header::try_from(i).unwrap();
                     header.tlvs().count();
                 });
-            },
-        );
-
-        group.bench_with_input(
-            BenchmarkId::new("parse_header", id),
-            input.as_slice(),
-            |b, i| {
-                b.iter(|| parse_header(i).unwrap());
             },
         );
     }
