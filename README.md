@@ -3,81 +3,103 @@
 [![Crates.io Version](https://img.shields.io/crates/v/ppp.svg)](https://crates.io/crates/ppp)
 [![Docs.rs Version](https://docs.rs/ppp/badge.svg)](https://docs.rs/ppp)
 
-A Proxy Protocol Parser written in Rust. Supports both text and binary versions of the header.
+A Proxy Protocol Parser written in Rust. Supports both text and binary versions of the HAProxy header.
 See [HAProxy](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt) for the protocol specification.
 
-## Benchmark
-Ran `cargo bench` on a desktop with a hexa-core i7 processor with hyper-threading.
+## Usage
+Add the following to your `Cargo.toml` as a dependency:
+
+```toml
+ppp = "2.0"
+```
+
+Then, you can use either the text or binary versions of the protocol.
+
+For the text version use:
+```rust
+use ppp::v1;
+use std::net::SocketAddr;
+
+let client_address: SocketAddr = ...;
+let server_address: SocketAddr = ...;
+
+// Create a v1 header
+let header = v1::Addresses::from((client_address, server_address)).to_string();
+
+assert_eq!(header, v1::Header::try_from(header.as_str()).unwrap().to_string());
+```
+
+For the binary version use:
+```rust
+use ppp::v2;
+use std::net::SocketAddr;
+
+let client_address: SocketAddr = ...;
+let server_address: SocketAddr = ...;
+
+let header = v2::Builder::with_addresses(
+    v2::Version::Two | v2::Command::Proxy,
+    v2::Protocol::Stream,
+    (client_address, server_address),
+)
+.write_tlv(v2::Type::NoOp, b"Hello, World!")
+.unwrap()
+.build()
+.unwrap();
+
+assert_eq!(
+    header,
+    v2::Header::try_from(header.as_slice()).unwrap().as_bytes()
+);
+```
+
+## Examples
+The [repository](https://github.com/misalcedo/ppp) contains examples for how to use both versions of the proxy protocol with streaming support. To run the examples, you will need to use 3 terminal windows.
+
+### Proxy
+The proxy Server that writes the proxy protocol header will be in its own terminal. The example takes an optional argument of which version of the header to write as `v1` or `v2`, with a default of `v2`.
+
+Version 2:
+```bash
+cargo run --examples one_byte
+```
+
+Version 1:
+```bash
+cargo run --examples one_byte v1
+```
+
+### Server
+A minimal HTTP server that reads the proxy protocol headers and responds to HTTP requests.
 
 ```bash
-     Running target/release/deps/binary-2681142d001dfe3e
-ppp binary IPv6 without TLVs                                                                            
-                        time:   [281.15 ns 282.12 ns 283.49 ns]
-                        change: [-7.6818% -6.1635% -4.5902%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 4 outliers among 100 measurements (4.00%)
-  4 (4.00%) high severe
+cargo run --examples server
+```
 
-ppp binary IPv4 with TLVs                                                                            
-                        time:   [84.356 ns 84.433 ns 84.505 ns]
-                        change: [-1.6253% -0.7449% +0.0210%] (p = 0.08 > 0.05)
-                        No change in performance detected.
-Found 2 outliers among 100 measurements (2.00%)
-  2 (2.00%) low mild
+### HTTP Client
+We use `cURL` as the HTTP client for the examples, but any HTTP client will do.
 
-ppp header to bytes binary IPv6 without TLVs                                                                            
-                        time:   [148.49 ns 148.53 ns 148.58 ns]
-                        change: [-3.5002% -2.2646% -1.1667%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 2 outliers among 100 measurements (2.00%)
-  2 (2.00%) high severe
+```bash
+curl -vvv http://localhost:8888/
+```
 
-ppp header to bytes binary IPv4 with TLVs                                                                            
-                        time:   [158.92 ns 160.10 ns 161.47 ns]
-                        change: [-2.1441% -1.0137% +0.0999%] (p = 0.08 > 0.05)
-                        No change in performance detected.
-Found 7 outliers among 100 measurements (7.00%)
-  2 (2.00%) high mild
-  5 (5.00%) high severe
+## Profiling
+Profiling a benchmark run is currently only supported on a *nix environment. The profiler outputs a flamegraph in the `target` directory. To run a profiling session use:
 
-     Running target/release/deps/text-fb185ef299e3eb06
-ppp text tcp4           time:   [368.56 ns 368.84 ns 369.27 ns]                          
-                        change: [-6.0919% -4.1408% -2.4502%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 10 outliers among 100 measurements (10.00%)
-  4 (4.00%) high mild
-  6 (6.00%) high severe
+```bash
+cargo bench -- --profile-time=60
+```
 
-ppp text tcp6           time:   [932.82 ns 940.16 ns 949.77 ns]                           
-                        change: [-0.9088% -0.3712% +0.1755%] (p = 0.20 > 0.05)
-                        No change in performance detected.
-Found 16 outliers among 100 measurements (16.00%)
-  3 (3.00%) high mild
-  13 (13.00%) high severe
+## Benchmark
+To run the benchmarks use:
 
-ppp text tcp6 compact   time:   [731.10 ns 731.63 ns 732.36 ns]                                   
-                        change: [-2.6089% -1.8543% -1.1878%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 22 outliers among 100 measurements (22.00%)
-  1 (1.00%) low severe
-  3 (3.00%) low mild
-  3 (3.00%) high mild
-  15 (15.00%) high severe
+```bash
+cargo bench
+```
 
-ppp header to text tcp4 time:   [236.54 ns 236.61 ns 236.68 ns]                                    
-Found 8 outliers among 100 measurements (8.00%)
-  4 (4.00%) high mild
-  4 (4.00%) high severe
+### Results
+The following are a snapshot of a benchmarking run on a desktop with a hexa-core i7 processor with hyper-threading.
 
-ppp header to text tcp6 time:   [536.64 ns 539.69 ns 543.51 ns]                                     
-Found 6 outliers among 100 measurements (6.00%)
-  1 (1.00%) high mild
-  5 (5.00%) high severe
-
-ppp header to text unknown                                                                            
-                        time:   [51.601 ns 51.625 ns 51.651 ns]
-Found 4 outliers among 100 measurements (4.00%)
-  2 (2.00%) high mild
-  2 (2.00%) high severe
-
+```bash
+TODO
 ```
