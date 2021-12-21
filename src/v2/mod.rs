@@ -13,12 +13,20 @@ pub use model::{
     AddressFamily, Addresses, Command, Header, Protocol, Type, TypeLengthValue, TypeLengthValues,
     Unix, Version, MINIMUM_LENGTH, MINIMUM_TLV_LENGTH, PROTOCOL_PREFIX,
 };
-use model::{ADDRESS_FAMILY_PROTOCOL, LENGTH, VERSION_COMMAND};
 use std::net::{Ipv4Addr, Ipv6Addr};
 
+/// Masks the right 4-bits so only the left 4-bits are present.
 const LEFT_MASK: u8 = 0xF0;
+/// Masks the left 4-bits so only the right 4-bits are present.
 const RIGH_MASK: u8 = 0x0F;
+/// The index of the version-command byte.
+const VERSION_COMMAND: usize = PROTOCOL_PREFIX.len();
+/// The index of the address family-protocol byte.
+const ADDRESS_FAMILY_PROTOCOL: usize = VERSION_COMMAND + 1;
+/// The index of the start of the big-endian u16 length.
+const LENGTH: usize = ADDRESS_FAMILY_PROTOCOL + 1;
 
+/// Parses the addresses from the header payload.
 fn parse_addresses(address_family: AddressFamily, bytes: &[u8]) -> Addresses {
     match address_family {
         AddressFamily::Unspecified => Addresses::Unspecified,

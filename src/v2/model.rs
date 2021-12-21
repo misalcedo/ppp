@@ -4,16 +4,43 @@ use std::fmt;
 use std::net::SocketAddr;
 use std::ops::BitOr;
 
+/// The prefix of the PROXY protocol header.
 pub const PROTOCOL_PREFIX: &[u8] = b"\r\n\r\n\0\r\nQUIT\n";
-pub const VERSION_COMMAND: usize = PROTOCOL_PREFIX.len();
-pub const ADDRESS_FAMILY_PROTOCOL: usize = VERSION_COMMAND + 1;
-pub const LENGTH: usize = ADDRESS_FAMILY_PROTOCOL + 1;
-pub const MINIMUM_LENGTH: usize = LENGTH + 2;
+/// The minimum length in bytes of a PROXY protocol header.
+pub const MINIMUM_LENGTH: usize = 16;
+/// The mimimum length in bytes of a Type-Length-Value payload.
 pub const MINIMUM_TLV_LENGTH: usize = 3;
+
+/// The number of bytes for an IPv4 addresses payload.
 const IPV4_ADDRESSES_BYTES: usize = 12;
+/// The number of bytes for an IPv6 addresses payload.
 const IPV6_ADDRESSES_BYTES: usize = 36;
+/// The number of bytes for a unix addresses payload.
 const UNIX_ADDRESSES_BYTES: usize = 216;
 
+/// A proxy protocol version 2 header.
+/// 
+/// ## Examples
+/// ```rust
+/// use ppp::v2::{Addresses, AddressFamily, Command, Header, IPv4, ParseError, Protocol, PROTOCOL_PREFIX, Type, TypeLengthValue, Version};
+/// let mut header = Vec::from(PROTOCOL_PREFIX);
+/// header.extend([
+///    0x21, 0x12, 0, 16, 127, 0, 0, 1, 192, 168, 1, 1, 0, 80, 1, 187, 4, 0, 1, 42
+/// ]);
+///
+/// let addresses: Addresses = IPv4::new([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into(); 
+/// let expected = Header {
+///    header: header.as_slice(),
+///    version: Version::Two,
+///    command: Command::Proxy,
+///    protocol: Protocol::Datagram,
+///    addresses
+/// };
+/// let actual = Header::try_from(header.as_slice()).unwrap();
+///
+/// assert_eq!(actual, expected);
+/// assert_eq!(actual.tlvs().collect::<Vec<Result<TypeLengthValue<'_>, ParseError>>>(), vec![Ok(TypeLengthValue::new(Type::NoOp, &[42]))]);
+/// ``` 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Header<'a> {
     pub header: &'a [u8],
@@ -21,6 +48,93 @@ pub struct Header<'a> {
     pub command: Command,
     pub protocol: Protocol,
     pub addresses: Addresses,
+}
+
+/// The supported `Version`s for binary headers.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Version {
+    Two = 0x20,
+}
+
+/// The supported `Command`s for a PROXY protocol header.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Command {
+    Local = 0,
+    Proxy,
+}
+
+/// The supported `AddressFamily` for a PROXY protocol header.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum AddressFamily {
+    Unspecified = 0x00,
+    IPv4 = 0x10,
+    IPv6 = 0x20,
+    Unix = 0x30,
+}
+
+/// The supported `Protocol`s for a PROXY protocol header.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Protocol {
+    Unspecified = 0,
+    Stream,
+    Datagram,
+}
+
+/// The source and destination address information for a given `AddressFamily`.
+/// 
+/// ## Examples
+/// ```rust
+/// use ppp::v2::{Addresses, AddressFamily};
+/// use std::net::SocketAddr;
+/// 
+/// let addresses: Addresses = ("127.0.0.1:80".parse::<SocketAddr>().unwrap(), "192.168.1.1:443".parse::<SocketAddr>().unwrap()).into();
+/// 
+/// assert_eq!(addresses.address_family(), AddressFamily::IPv4);
+/// ``` 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Addresses {
+    Unspecified,
+    IPv4(IPv4),
+    IPv6(IPv6),
+    Unix(Unix),
+}
+
+/// The source and destination addresses of UNIX sockets.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Unix {
+    pub source: [u8; 108],
+    pub destination: [u8; 108],
+}
+
+/// An `Iterator` of `TypeLengthValue`s.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct TypeLengthValues<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+/// A Type-Length-Value payload.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct TypeLengthValue<'a> {
+    pub kind: u8,
+    pub value: &'a [u8],
+}
+
+/// Supported types for `TypeLengthValue` payloads.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Type {
+    ALPN = 1,
+    Authority,
+    CRC32C,
+    NoOp,
+    UniqueId,
+    SSL = 20,
+    SSLVersion,
+    SSLCommonName,
+    SSLCipher,
+    SSLSignatureAlgorithm,
+    SSLKeyAlgorithm,
+    NetworkNamespace = 30,
 }
 
 impl<'a> fmt::Display for Header<'a> {
@@ -80,12 +194,6 @@ impl<'a> Header<'a> {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct TypeLengthValues<'a> {
-    bytes: &'a [u8],
-    offset: usize,
-}
-
 impl<'a> TypeLengthValues<'a> {
     pub fn as_bytes(&self) -> &'a [u8] {
         self.bytes
@@ -141,11 +249,6 @@ impl<'a> TypeLengthValues<'a> {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Version {
-    Two = 0x20,
-}
-
 impl BitOr<Command> for Version {
     type Output = u8;
 
@@ -154,26 +257,12 @@ impl BitOr<Command> for Version {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Command {
-    Local = 0,
-    Proxy,
-}
-
 impl BitOr<Version> for Command {
     type Output = u8;
 
     fn bitor(self, version: Version) -> Self::Output {
         (self as u8) | (version as u8)
     }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum AddressFamily {
-    Unspecified = 0x00,
-    IPv4 = 0x10,
-    IPv6 = 0x20,
-    Unix = 0x30,
 }
 
 impl BitOr<Protocol> for AddressFamily {
@@ -199,14 +288,6 @@ impl From<AddressFamily> for u16 {
     fn from(address_family: AddressFamily) -> Self {
         address_family.byte_length().unwrap_or_default() as u16
     }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Addresses {
-    Unspecified,
-    IPv4(IPv4),
-    IPv6(IPv6),
-    Unix(Unix),
 }
 
 impl From<(SocketAddr, SocketAddr)> for Addresses {
@@ -268,12 +349,6 @@ impl Addresses {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Unix {
-    pub source: [u8; 108],
-    pub destination: [u8; 108],
-}
-
 impl Unix {
     pub fn new(source: [u8; 108], destination: [u8; 108]) -> Self {
         Unix {
@@ -283,25 +358,12 @@ impl Unix {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Protocol {
-    Unspecified = 0,
-    Stream,
-    Datagram,
-}
-
 impl BitOr<AddressFamily> for Protocol {
     type Output = u8;
 
     fn bitor(self, address_family: AddressFamily) -> Self::Output {
         (self as u8) | (address_family as u8)
     }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct TypeLengthValue<'a> {
-    pub kind: u8,
-    pub value: &'a [u8],
 }
 
 impl<'a, T: Into<u8>> From<(T, &'a [u8])> for TypeLengthValue<'a> {
@@ -328,22 +390,6 @@ impl<'a> TypeLengthValue<'a> {
     pub fn is_empty(&self) -> bool {
         self.value.is_empty()
     }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Type {
-    ALPN = 1,
-    Authority,
-    CRC32C,
-    NoOp,
-    UniqueId,
-    SSL = 20,
-    SSLVersion,
-    SSLCommonName,
-    SSLCipher,
-    SSLSignatureAlgorithm,
-    SSLKeyAlgorithm,
-    NetworkNamespace = 30,
 }
 
 impl From<Type> for u8 {
