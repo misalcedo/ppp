@@ -29,15 +29,15 @@ fn parse_header(header: &str) -> Result<Header, ParseError> {
     }
 
     let mut iterator = header
-        .splitn(PARTS, [SEPARATOR, CARRIAGE_RETURN].as_slice())
+        .splitn(PARTS, |c| c == SEPARATOR || c == CARRIAGE_RETURN)
         .peekable();
 
-    let prefix = iterator
-        .next()
-        .filter(|s| !s.is_empty())
-        .ok_or(ParseError::MissingPrefix)?;
+    let prefix = iterator.next().ok_or(ParseError::MissingPrefix)?;
 
-    if PROTOCOL_PREFIX.starts_with(prefix) && header.ends_with(prefix) {
+    if prefix.is_empty() && header.is_empty() {
+        return Err(ParseError::MissingPrefix);
+    } else if !prefix.is_empty() && PROTOCOL_PREFIX.starts_with(prefix) && header.ends_with(prefix)
+    {
         return Err(ParseError::Partial);
     } else if prefix != PROTOCOL_PREFIX {
         return Err(ParseError::InvalidPrefix);
@@ -71,9 +71,12 @@ fn parse_header(header: &str) -> Result<Header, ParseError> {
 
             Addresses::Unknown
         }
-        Some(protocol) if protocol.is_empty() => return Err(ParseError::MissingProtocol),
+        Some(protocol) if protocol.is_empty() && iterator.peek().is_none() => {
+            return Err(ParseError::MissingProtocol)
+        }
         Some(protocol)
-            if header.ends_with(protocol)
+            if !protocol.is_empty()
+                && header.ends_with(protocol)
                 && (TCP4.starts_with(protocol) || UNKNOWN.starts_with(protocol)) =>
         {
             return Err(ParseError::Partial)
@@ -223,20 +226,6 @@ mod tests {
         assert_eq!(
             Header::try_from(text.as_bytes()).unwrap_err(),
             ParseError::MissingNewLine.into()
-        );
-    }
-
-    #[test]
-    fn parse_invalid() {
-        let text = "PROXY \r\n";
-
-        assert_eq!(
-            Header::try_from(text).unwrap_err(),
-            ParseError::MissingProtocol
-        );
-        assert_eq!(
-            Header::try_from(text.as_bytes()).unwrap_err(),
-            ParseError::MissingProtocol.into()
         );
     }
 
@@ -517,10 +506,10 @@ mod tests {
     fn parse_more_than_one_space() {
         let text = "PROXY  TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n";
 
-        assert_eq!(Header::try_from(text), Err(ParseError::MissingProtocol));
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidProtocol));
         assert_eq!(
             Header::try_from(text.as_bytes()),
-            Err(ParseError::MissingProtocol.into())
+            Err(ParseError::InvalidProtocol.into())
         );
     }
 
@@ -609,6 +598,17 @@ mod tests {
     }
 
     #[test]
+    fn parse_empty_newline() {
+        let text = "\r\n";
+
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidPrefix));
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidPrefix.into())
+        );
+    }
+
+    #[test]
     fn parse_partial_prefix_missing_newline() {
         let text = "PROX";
 
@@ -627,6 +627,28 @@ mod tests {
         assert_eq!(
             Header::try_from(text.as_bytes()),
             Err(ParseError::Partial.into())
+        );
+    }
+
+    #[test]
+    fn parse_partial_protocol_with_newline() {
+        let text = "PROXY UNKN\r\n";
+
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidProtocol));
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidProtocol.into())
+        );
+    }
+
+    #[test]
+    fn parse_empty_protocol_with_newline() {
+        let text = "PROXY \r\n";
+
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidProtocol));
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidProtocol.into())
         );
     }
 
