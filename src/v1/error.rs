@@ -5,6 +5,10 @@
 pub enum ParseError {
     #[error("Header must start with 'PROXY'.")]
     InvalidPrefix,
+    #[error("Header is only partially present.")]
+    Partial,
+    #[error("Header is empty.")]
+    MissingPrefix,
     #[error("Header does not end with the string '\\r\\n'.")]
     MissingNewLine,
     #[error("Header missing protocol.")]

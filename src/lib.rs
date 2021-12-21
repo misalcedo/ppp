@@ -25,7 +25,17 @@ impl<'a, T, E: PartialResult> PartialResult for Result<T, E> {
 
 impl<'a> PartialResult for v1::ParseError {
     fn is_incomplete(&self) -> bool {
-        matches!(self, v1::ParseError::MissingNewLine)
+        matches!(
+            self,
+            v1::ParseError::Partial
+                | v1::ParseError::MissingPrefix
+                | v1::ParseError::MissingProtocol
+                | v1::ParseError::MissingSourceAddress
+                | v1::ParseError::MissingDestinationAddress
+                | v1::ParseError::MissingSourcePort
+                | v1::ParseError::MissingDestinationPort
+                | v1::ParseError::MissingNewLine
+        )
     }
 }
 

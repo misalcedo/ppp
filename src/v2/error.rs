@@ -1,6 +1,6 @@
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ParseError {
-    #[error("Expected header to include 4 bytes after the prefix (length {0}).")]
+    #[error("Expected header to the protocol prefix plus 4 bytes after the prefix (length {0}).")]
     Incomplete(usize),
     #[error("Expected header to start with a prefix of '\\r\\n\\r\\n\\0\\r\\nQUIT\\n'.")]
     Prefix,
