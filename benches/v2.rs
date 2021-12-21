@@ -89,7 +89,7 @@ fn benchmarks(c: &mut Criterion) {
                         v2::Protocol::Unspecified,
                         addresses,
                     )
-                    .reserve_capacity(7)
+                    .reserve_capacity(8)
                     .write_payloads([
                         (v2::Type::NoOp, [0].as_slice()),
                         (v2::Type::NoOp, [42].as_slice()),
