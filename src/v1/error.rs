@@ -21,12 +21,12 @@ pub enum ParseError {
     MissingSourcePort,
     #[error("Header missing destination port.")]
     MissingDestinationPort,
-    #[error("Header contains additional characters after the destination port, but before the '\\r\\n'.")]
-    UnexpectedCharacters,
     #[error("Header does not fit within the expected buffer size of 107 bytes (plus 1 byte for null-terminated strings).")]
     HeaderTooLong,
     #[error("Header has an invalid protocol.")]
     InvalidProtocol,
+    #[error("Header must end in '\r\n'.")]
+    InvalidSuffix,
     #[error("Header contains invalid IP address for the source.")]
     InvalidSourceAddress(#[source] std::net::AddrParseError),
     #[error("Header contains invalid IP address for the destination.")]

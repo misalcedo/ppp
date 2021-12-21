@@ -8,7 +8,7 @@ pub const TCP4: &str = "TCP4";
 pub const TCP6: &str = "TCP6";
 pub const UNKNOWN: &str = "UNKNOWN";
 
-/// The sperator of the header parts.
+/// The separator of the header parts.
 pub const SEPARATOR: char = ' ';
 
 /// A text PROXY protocol header that borrows the input string.

@@ -7,19 +7,105 @@ mod model;
 
 pub use crate::ip::{IPv4, IPv6};
 pub use error::{BinaryParseError, ParseError};
-pub use model::{Addresses, Header, TCP4, TCP6, UNKNOWN};
-use model::{PROTOCOL_PREFIX, PROTOCOL_SUFFIX, SEPARATOR};
+pub use model::{Addresses, Header, SEPARATOR, TCP4, TCP6, UNKNOWN};
+use model::{PROTOCOL_PREFIX, PROTOCOL_SUFFIX};
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::str::{from_utf8, FromStr};
 
 const ZERO: &str = "0";
+const NEWLINE: &str = "\n";
+const CARRIAGE_RETURN: char = '\r';
 
 /// The maximum length of a header in bytes.
 const MAX_LENGTH: usize = 107;
 /// The total number of parts in the header.
-const PARTS: usize = 6;
+const PARTS: usize = 7;
 
-/// Parses the addresses and ports from a PROY protocol header for IPv4 and IPv6.
+/// Parses a text PROXY protocol header.
+/// The given string is expected to only include the header and to end in \r\n.
+fn parse_header(header: &str) -> Result<Header, ParseError> {
+    if header.len() > MAX_LENGTH {
+        return Err(ParseError::HeaderTooLong);
+    }
+
+    let mut iterator = header
+        .splitn(PARTS, [SEPARATOR, CARRIAGE_RETURN].as_slice())
+        .peekable();
+
+    let prefix = iterator
+        .next()
+        .filter(|s| !s.is_empty())
+        .ok_or(ParseError::MissingPrefix)?;
+
+    matches_part(header, prefix, PROTOCOL_PREFIX)?.ok_or(ParseError::InvalidPrefix)?;
+
+    let addresses = match iterator.next() {
+        Some(TCP4) => {
+            let (source_address, destination_address, source_port, destination_port) =
+                parse_addresses::<Ipv4Addr, _>(&mut iterator)?;
+
+            Addresses::Tcp4(IPv4 {
+                source_address,
+                source_port,
+                destination_address,
+                destination_port,
+            })
+        }
+        Some(TCP6) => {
+            let (source_address, destination_address, source_port, destination_port) =
+                parse_addresses::<Ipv6Addr, _>(&mut iterator)?;
+
+            Addresses::Tcp6(IPv6 {
+                source_address,
+                source_port,
+                destination_address,
+                destination_port,
+            })
+        }
+        Some(UNKNOWN) => {
+            while iterator.next_if(|&s| s != NEWLINE).is_some() {}
+
+            Addresses::Unknown
+        }
+        Some(protocol) if protocol.is_empty() => return Err(ParseError::MissingProtocol),
+        Some(protocol)
+            if header.ends_with(protocol)
+                && (TCP4.starts_with(protocol) || UNKNOWN.starts_with(protocol)) =>
+        {
+            return Err(ParseError::Partial)
+        }
+        Some(_) => return Err(ParseError::InvalidProtocol),
+        None => return Err(ParseError::MissingProtocol),
+    };
+
+    let newline = iterator
+        .next()
+        .filter(|s| !s.is_empty())
+        .ok_or(ParseError::MissingNewLine)?;
+
+    if newline != NEWLINE {
+        return Err(ParseError::InvalidSuffix);
+    }
+
+    Ok(Header { header, addresses })
+}
+
+/// Performs a partial match of a string against the expected next portion of the protocol.
+fn matches_part<'a, 'b>(
+    header: &'a str,
+    actual: &'a str,
+    expected: &'b str,
+) -> Result<Option<&'a str>, ParseError> {
+    if actual == expected {
+        Ok(Some(actual))
+    } else if expected.starts_with(actual) && header.ends_with(actual) {
+        Err(ParseError::Partial)
+    } else {
+        Ok(None)
+    }
+}
+
+/// Parses the addresses and ports from a PROXY protocol header for IPv4 and IPv6.
 fn parse_addresses<'a, T: FromStr<Err = AddrParseError>, I: Iterator<Item = &'a str>>(
     iterator: &mut I,
 ) -> Result<(T, T, u16, u16), ParseError> {
@@ -61,72 +147,17 @@ fn parse_addresses<'a, T: FromStr<Err = AddrParseError>, I: Iterator<Item = &'a 
     ))
 }
 
-/// Parses a text PROXY protocol header.
-/// The given string is expected to only include the header and to end in \r\n.
-fn parse_header<'a>(header_stripped: &'a str, header: &'a str) -> Result<Header<'a>, ParseError> {
-    if header.len() > MAX_LENGTH {
-        return Err(ParseError::HeaderTooLong);
-    }
-
-    let mut iterator = header_stripped.splitn(PARTS, SEPARATOR);
-
-    if Some(PROTOCOL_PREFIX) != iterator.next() {
-        return Err(ParseError::InvalidPrefix);
-    }
-
-    let addresses = match iterator.next() {
-        Some(TCP4) => {
-            let (source_address, destination_address, source_port, destination_port) =
-                parse_addresses::<Ipv4Addr, _>(&mut iterator)?;
-
-            Addresses::Tcp4(IPv4 {
-                source_address,
-                source_port,
-                destination_address,
-                destination_port,
-            })
-        }
-        Some(TCP6) => {
-            let (source_address, destination_address, source_port, destination_port) =
-                parse_addresses::<Ipv6Addr, _>(&mut iterator)?;
-
-            Addresses::Tcp6(IPv6 {
-                source_address,
-                source_port,
-                destination_address,
-                destination_port,
-            })
-        }
-        Some(UNKNOWN) => {
-            while iterator.next().is_some() {}
-
-            Addresses::Unknown
-        }
-        Some(protocol) if !protocol.is_empty() => return Err(ParseError::InvalidProtocol),
-        _ => return Err(ParseError::MissingProtocol),
-    };
-
-    if iterator.next().is_some() {
-        return Err(ParseError::UnexpectedCharacters);
-    }
-
-    Ok(Header { header, addresses })
-}
-
 impl<'a> TryFrom<&'a str> for Header<'a> {
     type Error = ParseError;
 
     fn try_from(input: &'a str) -> Result<Self, Self::Error> {
-        let end = input.find(PROTOCOL_SUFFIX).ok_or_else(|| {
-            if input.len() >= MAX_LENGTH {
-                ParseError::HeaderTooLong
-            } else {
-                ParseError::MissingNewLine
-            }
-        })?;
-        let length = end + PROTOCOL_SUFFIX.len();
+        let length = match input.find(CARRIAGE_RETURN) {
+            Some(suffix) => suffix + PROTOCOL_SUFFIX.len(),
+            None if input.len() >= MAX_LENGTH => return Err(ParseError::HeaderTooLong),
+            None => input.len(),
+        };
 
-        parse_header(&input[..end], &input[..length])
+        parse_header(&input[..length])
     }
 }
 
@@ -134,22 +165,14 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
     type Error = BinaryParseError;
 
     fn try_from(input: &'a [u8]) -> Result<Self, Self::Error> {
-        let end = input
-            .windows(PROTOCOL_SUFFIX.len())
-            .position(|window| window == PROTOCOL_SUFFIX.as_bytes())
-            .ok_or_else(|| {
-                if input.len() >= MAX_LENGTH {
-                    ParseError::HeaderTooLong
-                } else {
-                    ParseError::MissingNewLine
-                }
-            })
-            .map_err(BinaryParseError::Parse)?;
-
-        let length = end + PROTOCOL_SUFFIX.len();
+        let length = match input.iter().position(|&c| CARRIAGE_RETURN == (c as char)) {
+            Some(suffix) => suffix + PROTOCOL_SUFFIX.len(),
+            None if input.len() >= MAX_LENGTH => return Err(ParseError::HeaderTooLong.into()),
+            None => input.len(),
+        };
         let header = from_utf8(&input[..length])?;
 
-        parse_header(&header[..end], header).map_err(BinaryParseError::Parse)
+        parse_header(header).map_err(BinaryParseError::Parse)
     }
 }
 
@@ -565,15 +588,12 @@ mod tests {
         assert_eq!(
             Header::try_from(text),
             Err(ParseError::InvalidDestinationPort(Some(
-                " 65535".parse::<u16>().unwrap_err()
+                "".parse::<u16>().unwrap_err()
             )))
         );
         assert_eq!(
             Header::try_from(text.as_bytes()),
-            Err(
-                ParseError::InvalidDestinationPort(Some(" 65535".parse::<u16>().unwrap_err()))
-                    .into()
-            )
+            Err(ParseError::InvalidDestinationPort(Some("".parse::<u16>().unwrap_err())).into())
         );
     }
 
@@ -581,24 +601,71 @@ mod tests {
     fn parse_more_than_one_space_end() {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535 \r\n";
 
-        assert_eq!(
-            Header::try_from(text),
-            Err(ParseError::InvalidDestinationPort(Some(
-                "65535 ".parse::<u16>().unwrap_err()
-            )))
-        );
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidSuffix));
         assert_eq!(
             Header::try_from(text.as_bytes()),
-            Err(
-                ParseError::InvalidDestinationPort(Some("65535 ".parse::<u16>().unwrap_err()))
-                    .into()
-            )
+            Err(ParseError::InvalidSuffix.into())
         );
     }
 
     #[test]
     fn parse_partial_prefix() {
         let text = "PROX\r\n";
+
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidPrefix));
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidPrefix.into())
+        );
+    }
+
+    #[test]
+    fn parse_partial_prefix_missing_newline() {
+        let text = "PROX";
+
+        assert_eq!(Header::try_from(text), Err(ParseError::Partial));
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::Partial.into())
+        );
+    }
+
+    #[test]
+    fn parse_partial_protocol_missing_newline() {
+        let text = "PROXY UNKN";
+
+        assert_eq!(Header::try_from(text), Err(ParseError::Partial));
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::Partial.into())
+        );
+    }
+
+    #[test]
+    fn parse_empty() {
+        let text = "";
+
+        assert_eq!(Header::try_from(text), Err(ParseError::MissingPrefix));
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::MissingPrefix.into())
+        );
+    }
+
+    #[test]
+    fn parse_no_new_line() {
+        let text = "PROXY TCP4 127.0.0.1 192.168.1.1 80 443\r\t";
+
+        assert_eq!(Header::try_from(text), Err(ParseError::InvalidSuffix));
+        assert_eq!(
+            Header::try_from(text.as_bytes()),
+            Err(ParseError::InvalidSuffix.into())
+        );
+    }
+
+    #[test]
+    fn parse_invalid_prefix_missing_newline() {
+        let text = "PRAX";
 
         assert_eq!(Header::try_from(text), Err(ParseError::InvalidPrefix));
         assert_eq!(
