@@ -14,7 +14,7 @@ pub struct Builder {
     header: Option<Vec<u8>>,
     version_command: u8,
     address_family_protocol: u8,
-    addresses: Option<Addresses>,
+    addresses: Addresses,
     length: Option<u16>,
     additional_capacity: usize,
 }
@@ -127,7 +127,7 @@ impl<'a> WriteToHeader for TypeLengthValues<'a> {
 
 impl WriteToHeader for [u8] {
     fn write_to(&self, writer: &mut Writer) -> io::Result<usize> {
-        let slice = self.as_ref();
+        let slice = self;
 
         if slice.len() > u16::MAX as usize {
             return Err(io::ErrorKind::WriteZero.into());
@@ -185,7 +185,7 @@ impl Builder {
             header: None,
             version_command,
             address_family_protocol,
-            addresses: None,
+            addresses: Addresses::Unspecified,
             length: None,
             additional_capacity: 0,
         }
@@ -202,17 +202,16 @@ impl Builder {
             header: None,
             version_command,
             address_family_protocol: addresses.address_family() | protocol,
-            addresses: Some(addresses),
+            addresses,
             length: None,
             additional_capacity: 0,
         }
     }
 
     pub fn reserve_capacity(mut self, capacity: usize) -> Self {
-        if let Some(header) = self.header.as_mut() {
-            header.reserve(capacity);
-        } else {
-            self.additional_capacity += capacity;
+        match self.header {
+            None => self.additional_capacity += capacity,
+            Some(ref mut header) => header.reserve(capacity),
         }
 
         self
@@ -268,13 +267,8 @@ impl Builder {
             return Ok(());
         }
 
-        let addresses_length = self
-            .addresses
-            .as_ref()
-            .map(Addresses::len)
-            .unwrap_or_default();
         let mut header =
-            Vec::with_capacity(MINIMUM_LENGTH + addresses_length + self.additional_capacity);
+            Vec::with_capacity(MINIMUM_LENGTH + self.addresses.len() + self.additional_capacity);
 
         let length = self.length.unwrap_or_default();
 
@@ -283,11 +277,10 @@ impl Builder {
         header.push(self.address_family_protocol);
         header.extend_from_slice(length.to_be_bytes().as_slice());
 
-        self.header = Some(header);
+        let mut writer = Writer::from(header);
 
-        if let Some(addresses) = self.addresses {
-            self.write_internal(addresses)?;
-        }
+        self.addresses.write_to(&mut writer)?;
+        self.header = Some(writer.finish());
 
         Ok(())
     }
