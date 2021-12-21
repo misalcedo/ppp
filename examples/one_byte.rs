@@ -38,10 +38,8 @@ fn handle_connection(mut client_input: TcpStream, server_address: &SocketAddr) -
                     Protocol::Stream,
                     (client_address, server_address),
                 )
-                .write_tlv(Type::NoOp, b"Hello, World!")
-                .unwrap()
-                .build()
-                .unwrap();
+                .write_tlv(Type::NoOp, b"Hello, World!")?
+                .build()?;
 
                 for byte in header.drain(..) {
                     server_output.write_all(&[byte])?;
