@@ -98,6 +98,23 @@ impl<'a> WriteToHeader for TypeLengthValue<'a> {
     }
 }
 
+impl<'a, T: Copy + Into<u8>> WriteToHeader for (T, &'a [u8]) {
+    fn write_to(&self, writer: &mut Writer) -> io::Result<usize> {
+        let kind = self.0.into();
+        let value = self.1;
+
+        if value.len() > u16::MAX as usize {
+            return Err(io::ErrorKind::WriteZero.into());
+        }
+
+        writer.write_all([kind].as_slice())?;
+        writer.write_all((value.len() as u16).to_be_bytes().as_slice())?;
+        writer.write_all(value)?;
+
+        Ok(MINIMUM_TLV_LENGTH + value.len())
+    }
+}
+
 impl<'a> WriteToHeader for TypeLengthValues<'a> {
     fn write_to(&self, writer: &mut Writer) -> io::Result<usize> {
         let bytes = self.as_bytes();
@@ -204,6 +221,25 @@ impl Builder {
     pub fn set_length<T: Into<Option<u16>>>(mut self, length: T) -> Self {
         self.length = length.into();
         self
+    }
+
+    pub fn write_payloads<T, I, II>(mut self, payloads: II) -> io::Result<Self>
+    where
+        T: WriteToHeader,
+        I: Iterator<Item = T>,
+        II: IntoIterator<IntoIter = I, Item = T>,
+    {
+        self.write_header()?;
+
+        let mut writer = Writer::from(self.header.take().unwrap_or_default());
+
+        for item in payloads {
+            item.write_to(&mut writer)?;
+        }
+
+        self.header = Some(writer.finish());
+
+        Ok(self)
     }
 
     pub fn write_payload<T: WriteToHeader>(mut self, payload: T) -> io::Result<Self> {
@@ -483,11 +519,11 @@ mod tests {
         )
         .write_payload(addresses)
         .unwrap()
-        .write_tlv(Type::NoOp, [0].as_slice())
-        .unwrap()
-        .write_tlv(Type::NoOp, [0].as_slice())
-        .unwrap()
-        .write_tlv(Type::NoOp, [42].as_slice())
+        .write_payloads([
+            (Type::NoOp, [0].as_slice()),
+            (Type::NoOp, [0].as_slice()),
+            (Type::NoOp, [42].as_slice()),
+        ])
         .unwrap()
         .build()
         .unwrap();
