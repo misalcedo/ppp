@@ -92,15 +92,18 @@ fn benchmarks(c: &mut Criterion) {
 
             b.iter(|| {
                 black_box(
-                    v2::Builder::with_additional_capacity(
+                    v2::Builder::with_addresses(
                         v2::Version::Two | v2::Command::Local,
-                        v2::AddressFamily::IPv6 | v2::Protocol::Unspecified,
-                        addresses.len() + 7,
+                        v2::Protocol::Unspecified,
+                        addresses,
                     )
-                    .write_addresses(addresses)
-                    .write_tlvs(vec![(v2::Type::NoOp, [0].as_slice())])
+                    .reserve_capacity(7)
+                    .write_payloads(vec![(v2::Type::NoOp, [0].as_slice())])
+                    .unwrap()
                     .write_tlv(v2::Type::NoOp, [42].as_slice())
-                    .build(),
+                    .unwrap()
+                    .build()
+                    .unwrap(),
                 );
             });
         },
