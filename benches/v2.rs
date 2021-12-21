@@ -98,9 +98,10 @@ fn benchmarks(c: &mut Criterion) {
                         addresses,
                     )
                     .reserve_capacity(7)
-                    .write_payloads(vec![(v2::Type::NoOp, [0].as_slice())])
-                    .unwrap()
-                    .write_tlv(v2::Type::NoOp, [42].as_slice())
+                    .write_payloads([
+                        (v2::Type::NoOp, [0].as_slice()),
+                        (v2::Type::NoOp, [42].as_slice()),
+                    ])
                     .unwrap()
                     .build()
                     .unwrap(),
