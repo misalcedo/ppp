@@ -8,7 +8,7 @@ mod model;
 pub use crate::ip::{IPv4, IPv6};
 pub use error::{BinaryParseError, ParseError};
 pub use model::{Addresses, Header, SEPARATOR, TCP4, TCP6, UNKNOWN};
-use model::{PROTOCOL_PREFIX, PROTOCOL_SUFFIX};
+pub use model::{PROTOCOL_PREFIX, PROTOCOL_SUFFIX};
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::str::{from_utf8, FromStr};
 

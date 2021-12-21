@@ -11,8 +11,9 @@ pub use builder::{Builder, Writer, WriteToHeader};
 pub use error::ParseError;
 pub use model::{
     AddressFamily, Addresses, Command, Header, Protocol, Type, TypeLengthValue, TypeLengthValues,
-    Unix, Version, MINIMUM_LENGTH, MINIMUM_TLV_LENGTH, PROTOCOL_PREFIX,
+    Unix, Version, PROTOCOL_PREFIX,
 };
+use model::{MINIMUM_LENGTH, MINIMUM_TLV_LENGTH};
 use std::net::{Ipv4Addr, Ipv6Addr};
 
 /// Masks the right 4-bits so only the left 4-bits are present.
