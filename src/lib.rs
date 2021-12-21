@@ -6,8 +6,8 @@ mod ip;
 pub mod v1;
 pub mod v2;
 
-/// The canonical way to determin when a streamed header should be retried in a streaming context.
-/// The protocol states that servers may choose to support partial headers or to close the connection if the header is not preset all at once.
+/// The canonical way to determine when a streamed header should be retried in a streaming context.
+/// The protocol states that servers may choose to support partial headers or to close the connection if the header is not present all at once.
 pub trait PartialResult {
     /// Tests whether this `Result` is successful or whether the error is terminal.
     /// A terminal error will not result in a success even with more bytes.

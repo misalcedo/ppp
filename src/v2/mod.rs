@@ -18,7 +18,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 /// Masks the right 4-bits so only the left 4-bits are present.
 const LEFT_MASK: u8 = 0xF0;
 /// Masks the left 4-bits so only the right 4-bits are present.
-const RIGH_MASK: u8 = 0x0F;
+const RIGHT_MASK: u8 = 0x0F;
 /// The index of the version-command byte.
 const VERSION_COMMAND: usize = PROTOCOL_PREFIX.len();
 /// The index of the address family-protocol byte.
@@ -101,7 +101,7 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
             0x20 => Version::Two,
             v => return Err(ParseError::Version(v)),
         };
-        let command = match input[VERSION_COMMAND] & RIGH_MASK {
+        let command = match input[VERSION_COMMAND] & RIGHT_MASK {
             0x00 => Command::Local,
             0x01 => Command::Proxy,
             c => return Err(ParseError::Command(c)),
@@ -114,7 +114,7 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
             0x30 => AddressFamily::Unix,
             a => return Err(ParseError::AddressFamily(a)),
         };
-        let protocol = match input[ADDRESS_FAMILY_PROTOCOL] & RIGH_MASK {
+        let protocol = match input[ADDRESS_FAMILY_PROTOCOL] & RIGHT_MASK {
             0x00 => Protocol::Unspecified,
             0x01 => Protocol::Stream,
             0x02 => Protocol::Datagram,

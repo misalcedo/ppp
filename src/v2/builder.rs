@@ -281,7 +281,7 @@ impl Builder {
         self
     }
 
-    /// Writes a iteratable set of payloads in order to the buffer.
+    /// Writes a iterable set of payloads in order to the buffer.
     /// No bytes are added by this `Builder` as a delimiter.
     pub fn write_payloads<T, I, II>(mut self, payloads: II) -> io::Result<Self>
     where
@@ -314,7 +314,7 @@ impl Builder {
     /// Writes a Type-Length-Value as a payload.
     /// No surrounding bytes (terminal or otherwise) are added by this `Builder`.
     /// The length is determined by the length of the slice.
-    /// An error is returned when the length of the slice exceeeds `u16::MAX`.
+    /// An error is returned when the length of the slice exceeds `u16::MAX`.
     pub fn write_tlv(self, kind: impl Into<u8>, value: &[u8]) -> io::Result<Self> {
         self.write_payload(TypeLengthValue::new(kind, value))
     }
@@ -355,7 +355,7 @@ impl Builder {
         Ok(())
     }
 
-    /// Builds the header and returns the underylying buffer.
+    /// Builds the header and returns the underlying buffer.
     /// If no length was explicitly set, returns an error when the length of the payload portion exceeds `u16::MAX`.
     pub fn build(mut self) -> io::Result<Vec<u8>> {
         self.write_header()?;

@@ -112,7 +112,7 @@ impl<'a> Header<'a> {
         self.addresses.protocol()
     }
 
-    /// The source and destination addressses portion of this `Header`.
+    /// The source and destination addresses portion of this `Header`.
     pub fn addresses_str(&self) -> &'a str {
         let start = PROTOCOL_PREFIX.len() + SEPARATOR.len_utf8() + self.protocol().len();
         let end = self.header.len() - PROTOCOL_SUFFIX.len();

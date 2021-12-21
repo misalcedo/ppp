@@ -8,7 +8,7 @@ use std::ops::BitOr;
 pub const PROTOCOL_PREFIX: &[u8] = b"\r\n\r\n\0\r\nQUIT\n";
 /// The minimum length in bytes of a PROXY protocol header.
 pub const MINIMUM_LENGTH: usize = 16;
-/// The mimimum length in bytes of a Type-Length-Value payload.
+/// The minimum length in bytes of a Type-Length-Value payload.
 pub const MINIMUM_TLV_LENGTH: usize = 3;
 
 /// The number of bytes for an IPv4 addresses payload.
@@ -161,7 +161,7 @@ impl<'a> Header<'a> {
         self.header.len()
     }
 
-    /// Tests whether this `Header`'s underylying byte slice is empty.
+    /// Tests whether this `Header`'s underlying byte slice is empty.
     pub fn is_empty(&self) -> bool {
         self.header.is_empty()
     }
@@ -171,7 +171,7 @@ impl<'a> Header<'a> {
         self.addresses.address_family()
     }
 
-    /// The length in bytes of the adress portion of the payload.
+    /// The length in bytes of the address portion of the payload.
     fn address_bytes_end(&self) -> usize {
         let length = self.length();
         let address_bytes = self.address_family().byte_length().unwrap_or(length);
@@ -179,7 +179,7 @@ impl<'a> Header<'a> {
         MINIMUM_LENGTH + std::cmp::min(address_bytes, length)
     }
 
-    /// The bytes of the adress portion of the payload.
+    /// The bytes of the address portion of the payload.
     pub fn address_bytes(&self) -> &'a [u8] {
         &self.header[MINIMUM_LENGTH..self.address_bytes_end()]
     }
@@ -368,7 +368,7 @@ impl Addresses {
 }
 
 impl Unix {
-    /// Creates a new instance of a source and destiantion address pair for Unix sockets.
+    /// Creates a new instance of a source and destination address pair for Unix sockets.
     pub fn new(source: [u8; 108], destination: [u8; 108]) -> Self {
         Unix {
             source,

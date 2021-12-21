@@ -23,7 +23,7 @@ pub enum ParseError {
         "Header length of {0} bytes cannot store the {1} bytes required for the address family."
     )]
     InvalidAddresses(usize, usize),
-    #[error("Header is not long enough to contain TLV {0} with lengh {1}.")]
+    #[error("Header is not long enough to contain TLV {0} with length {1}.")]
     InvalidTLV(u8, u16),
     #[error("Header contains leftover {0} bytes not accounted for by the address family or TLVs.")]
     Leftovers(usize),
