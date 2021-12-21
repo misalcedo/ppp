@@ -1,106 +1,29 @@
-use criterion::{black_box, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main};
 use criterion::{BenchmarkId, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
 
-use ppp::v2;
-
-fn ipv6_input() -> Vec<u8> {
-    let prefix = b"\r\n\r\n\0\r\nQUIT\n";
-    let mut input: Vec<u8> = Vec::with_capacity(prefix.len());
-
-    input.extend_from_slice(prefix);
-    input.push(0x21);
-    input.push(0x21);
-    input.extend(&[0, 45]);
-    input.extend(&[
-        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-        0xFF,
-    ]);
-    input.extend(&[
-        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-        0xF1,
-    ]);
-    input.extend(&[0, 80]);
-    input.extend(&[1, 187]);
-    input.extend(&[1, 0, 1, 5]);
-    input.extend(&[2, 0, 2, 5, 5]);
-
-    input
-}
-
-fn ipv4_input() -> Vec<u8> {
-    let prefix = b"\r\n\r\n\0\r\nQUIT\n";
-    let mut input: Vec<u8> = Vec::with_capacity(prefix.len());
-
-    input.extend_from_slice(prefix);
-    input.push(0x21);
-    input.push(0x11);
-    input.extend(&[0, 26]);
-    input.extend(&[127, 0, 0, 1]);
-    input.extend(&[198, 168, 1, 1]);
-    input.extend(&[0, 80]);
-    input.extend(&[1, 187]);
-    input.extend(&[1, 0, 1, 5]);
-    input.extend(&[2, 0, 2, 5, 5]);
-    input.extend(&[2, 0, 2, 5, 5]);
-
-    input
-}
+use ppp::v1;
 
 fn benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("PPP Binary");
 
     let inputs = [
-        ("IPv4 with TLVs", ipv4_input()),
-        ("IPv6 without TLVs", ipv6_input()),
+        ("UNKNOWN", "PROXY UNKNOWN\r\n"),
+        ("TCP4", "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n"),
+        ("TCP6", "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n"),
+        ("TCP6 Compact", "PROXY TCP6 ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n"),
+        ("Worst Case", "PROXY UNKNOWN ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n"),
     ];
 
     for (id, input) in inputs {
         group.bench_with_input(
-            BenchmarkId::new("v2::Header::try_from", id),
-            input.as_slice(),
+            BenchmarkId::new("v1::Header::try_from", id),
+            input.as_bytes(),
             |b, i| {
-                b.iter(|| {
-                    let header = v2::Header::try_from(i).unwrap();
-                    header.tlvs().count();
-                });
+                b.iter(|| v1::Header::try_from(i).unwrap());
             },
         );
     }
-
-    group.bench_function(
-        BenchmarkId::new("v2::Builder::build", "IPv6 with TLVs with length"),
-        |b| {
-            let source_address = [
-                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                0xFF, 0xF2,
-            ];
-            let destination_address = [
-                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                0xFF, 0xF1,
-            ];
-            let addresses =
-                v2::Addresses::IPv6(v2::IPv6::new(source_address, destination_address, 80, 443));
-
-            b.iter(|| {
-                black_box(
-                    v2::Builder::with_addresses(
-                        v2::Version::Two | v2::Command::Local,
-                        v2::Protocol::Unspecified,
-                        addresses,
-                    )
-                    .reserve_capacity(8)
-                    .write_payloads([
-                        (v2::Type::NoOp, [0].as_slice()),
-                        (v2::Type::NoOp, [42].as_slice()),
-                    ])
-                    .unwrap()
-                    .build()
-                    .unwrap(),
-                );
-            });
-        },
-    );
 
     group.finish();
 }
