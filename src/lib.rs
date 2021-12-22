@@ -64,3 +64,56 @@ impl<'a> PartialResult for v2::ParseError {
         )
     }
 }
+
+/// An enumeration of the supported header version's parse results.
+/// Useful for parsing either version 1 or version 2 of the PROXY protocol.
+///
+/// ## Examples
+/// ```rust
+/// use ppp::{HeaderResult, PartialResult, v1, v2};
+///
+/// let input = "PROXY UNKNOWN\r\n";
+/// let header = HeaderResult::parse(input.as_bytes());
+///
+/// assert_eq!(header, Ok(v1::Header::new(input, v1::Addresses::Unknown)).into());
+/// ```
+#[derive(Debug, PartialEq)]
+pub enum HeaderResult<'a> {
+    V1(Result<v1::Header<'a>, v1::BinaryParseError>),
+    V2(Result<v2::Header<'a>, v2::ParseError>),
+}
+
+impl<'a> From<Result<v1::Header<'a>, v1::BinaryParseError>> for HeaderResult<'a> {
+    fn from(result: Result<v1::Header<'a>, v1::BinaryParseError>) -> Self {
+        HeaderResult::V1(result)
+    }
+}
+
+impl<'a> From<Result<v2::Header<'a>, v2::ParseError>> for HeaderResult<'a> {
+    fn from(result: Result<v2::Header<'a>, v2::ParseError>) -> Self {
+        HeaderResult::V2(result)
+    }
+}
+
+impl<'a> PartialResult for HeaderResult<'a> {
+    fn is_incomplete(&self) -> bool {
+        match self {
+            Self::V1(result) => result.is_incomplete(),
+            Self::V2(result) => result.is_incomplete(),
+        }
+    }
+}
+
+impl<'a> HeaderResult<'a> {
+    /// Parses a PROXY protocol version 2 `Header`.
+    /// If the input is not a valid version 2 `Header`, attempts to parse a version 1 `Header`.  
+    pub fn parse(input: &'a [u8]) -> HeaderResult<'a> {
+        let header = v2::Header::try_from(input);
+
+        if header.is_complete() && header.is_err() {
+            v1::Header::try_from(input).into()
+        } else {
+            header.into()
+        }
+    }
+}

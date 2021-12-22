@@ -1,4 +1,4 @@
-use ppp::{v1, v2, PartialResult};
+use ppp::{HeaderResult, PartialResult};
 use std::io::{self, prelude::*};
 use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 
@@ -8,33 +8,23 @@ fn handle_connection(mut client: TcpStream) -> io::Result<()> {
     let mut buffer = [0; 512];
     let mut read = client.read(&mut buffer)?;
 
-    let mut header = v2::Header::try_from(&buffer[..read]);
+    let mut header = HeaderResult::parse(&buffer[..read]);
 
     while header.is_incomplete() {
-        println!("Incomplete binary header. Read {} bytes so far.", read);
+        println!("Incomplete header. Read {} bytes so far.", read);
 
         read += client.read(&mut buffer[read..])?;
-        header = v2::Header::try_from(&buffer[..read]);
+        header = HeaderResult::parse(&buffer[..read]);
     }
 
     match header {
-        Ok(header) => println!("Header: {}", header),
-        Err(error) => {
-            eprintln!("[ERROR] {:?} {}", buffer, error);
-
-            let mut header = v1::Header::try_from(&buffer[..read]);
-
-            while header.is_incomplete() {
-                println!("Incomplete text header. Read {} bytes so far.", read);
-
-                read += client.read(&mut buffer[read..])?;
-                header = v1::Header::try_from(&buffer[..read]);
-            }
-
-            match header {
-                Ok(header) => println!("Header: {}", header),
-                Err(error) => eprintln!("[ERROR] {:?} {}", buffer, error),
-            }
+        HeaderResult::V1(Ok(header)) => println!("V1 Header: {}", header),
+        HeaderResult::V2(Ok(header)) => println!("V2 Header: {}", header),
+        HeaderResult::V1(Err(error)) => {
+            eprintln!("[ERROR] V1 {:?} {}", buffer, error);
+        }
+        HeaderResult::V2(Err(error)) => {
+            eprintln!("[ERROR] V2 {:?} {}", buffer, error);
         }
     }
 

@@ -8,19 +8,19 @@ use std::io::{self, Write};
 
 /// `Write` interface for the builder's internal buffer.
 /// Can be used to turn header parts into bytes.
-/// 
+///
 /// ## Examples
 /// ```rust
 /// use ppp::v2::{Addresses, Writer, WriteToHeader};
 /// use std::net::SocketAddr;
-/// 
+///
 /// let addresses: Addresses = ("127.0.0.1:80".parse::<SocketAddr>().unwrap(), "192.168.1.1:443".parse::<SocketAddr>().unwrap()).into();
 /// let mut writer = Writer::default();
-/// 
+///
 /// addresses.write_to(&mut writer).unwrap();
-/// 
+///
 /// assert_eq!(addresses.to_bytes().unwrap(), writer.finish());
-/// ``` 
+/// ```
 #[derive(Debug, Default)]
 pub struct Writer {
     bytes: Vec<u8>,
@@ -28,7 +28,7 @@ pub struct Writer {
 
 /// Implementation of the builder pattern for PROXY protocol v2 headers.
 /// Supports both valid and invalid headers via the `write_payload` and `write_payloads` functions.
-/// 
+///
 /// ## Examples
 /// ```rust
 /// use ppp::v2::{Addresses, AddressFamily, Builder, Command, IPv4, Protocol, PROTOCOL_PREFIX, Type, Version};
@@ -91,8 +91,8 @@ impl Write for Writer {
 
 /// Defines how to write a type as part of a binary PROXY protocol header.
 pub trait WriteToHeader {
-    /// Write this instance to the given `Writer`. 
-    /// The `Writer` returns an IO error when an individual byte slice is longer than `u16::MAX`. 
+    /// Write this instance to the given `Writer`.
+    /// The `Writer` returns an IO error when an individual byte slice is longer than `u16::MAX`.
     /// However, the total length of the buffer may exceed `u16::MAX`.
     fn write_to(&self, writer: &mut Writer) -> io::Result<usize>;
 
@@ -275,7 +275,7 @@ impl Builder {
     }
 
     /// Overrides the length in the header.
-    /// When set to `Some` value, the length may be smaller or larger than the actual payload in the buffer. 
+    /// When set to `Some` value, the length may be smaller or larger than the actual payload in the buffer.
     pub fn set_length<T: Into<Option<u16>>>(mut self, length: T) -> Self {
         self.length = length.into();
         self
