@@ -15,7 +15,7 @@ ppp = "2.0"
 
 Then, you can use either the text or binary versions of the protocol.
 
-For the text version use:
+To parse or generate the text version use:
 ```rust
 use ppp::v1;
 use std::net::SocketAddr;
@@ -29,7 +29,7 @@ let header = v1::Addresses::from((client_address, server_address)).to_string();
 assert_eq!(header, v1::Header::try_from(header.as_str()).unwrap().to_string());
 ```
 
-For the binary version use:
+To parse or generate the binary version use:
 ```rust
 use ppp::v2;
 use std::net::SocketAddr;
@@ -51,6 +51,17 @@ assert_eq!(
     header,
     v2::Header::try_from(header.as_slice()).unwrap().as_bytes()
 );
+```
+
+To parse either version use:
+
+```rust
+use ppp::{HeaderResult, PartialResult, v1};
+
+let input = "PROXY UNKNOWN\r\n";
+let header = HeaderResult::parse(input.as_bytes());
+
+assert_eq!(header, Ok(v1::Header::new(input, v1::Addresses::Unknown)).into());
 ```
 
 ## Examples
