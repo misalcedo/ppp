@@ -136,7 +136,7 @@ fn benchmarks(c: &mut Criterion) {
 criterion_group! {
     name = benches;
     config = {
-        Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
+        Criterion::default().with_profiler(PProfProfiler::new(100, Output::Protobuf))
     };
     targets = benchmarks
 }
