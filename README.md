@@ -100,6 +100,44 @@ cargo bench
 ### Results
 The following are a snapshot of a benchmarking run on a desktop with a hexa-core i7 processor with hyper-threading.
 
+#### Binary
 ```bash
-TODO
+PPP Binary/v2::Header::try_from/IPv4 with TLVs
+                        time:   [51.357 ns 52.009 ns 52.722 ns]
+PPP Binary/v2::Header::as_bytes/IPv4 with TLVs
+                        time:   [515.38 ps 516.26 ps 517.48 ps]
+PPP Binary/v2::Header::try_from/IPv6 without TLVs
+                        time:   [48.939 ns 49.032 ns 49.147 ns]
+PPP Binary/v2::Header::as_bytes/IPv6 without TLVs
+                        time:   [514.61 ps 515.33 ps 516.42 ps]
+PPP Binary/v2::Builder::build/IPv6 with TLVs
+                        time:   [1.3795 us 1.3983 us 1.4194 us]
+PPP Binary/v2::Builder::build/IPv6 with TLVs with length
+                        time:   [136.72 ns 139.03 ns 141.54 ns]
+```
+
+#### Text
+```bash
+PPP Text/v1::Header::try_from/UNKNOWN
+                        time:   [54.173 ns 54.247 ns 54.338 ns]
+PPP Text/v1::Header::try_from/TCP4
+                        time:   [217.13 ns 217.62 ns 218.33 ns]
+PPP Text/v1::Header::try_from/TCP6
+                        time:   [537.42 ns 537.92 ns 538.60 ns]
+PPP Text/v1::Header::try_from/TCP6 Compact
+                        time:   [395.83 ns 397.08 ns 398.96 ns]
+PPP Text/v1::Header::try_from/Worst Case
+                        time:   [209.62 ns 209.75 ns 209.89 ns]
+PPP Text/v1::Header::to_string/TCP4
+                        time:   [70.355 ns 70.432 ns 70.528 ns]
+PPP Text/v1::Addresses::to_string/TCP4
+                        time:   [413.55 ns 415.27 ns 418.09 ns]
+PPP Text/v1::Header::to_string/TCP6
+                        time:   [81.200 ns 81.421 ns 81.716 ns]
+PPP Text/v1::Addresses::to_string/TCP6
+                        time:   [851.04 ns 852.34 ns 853.91 ns]
+PPP Text/v1::Header::to_string/UNKNOWN
+                        time:   [72.256 ns 73.089 ns 73.979 ns]
+PPP Text/v1::Addresses::to_string/UNKNOWN
+                        time:   [66.237 ns 66.305 ns 66.391 ns]
 ```
