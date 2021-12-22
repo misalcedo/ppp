@@ -10,10 +10,10 @@ pub const PROTOCOL_PREFIX: &str = "PROXY";
 /// The suffix of the PROXY protocol header.
 pub const PROTOCOL_SUFFIX: &str = "\r\n";
 
-/// TCP protocol with IPv4 address family. 
+/// TCP protocol with IPv4 address family.
 pub const TCP4: &str = "TCP4";
 
-/// TCP protocol with IPv6 address family. 
+/// TCP protocol with IPv6 address family.
 pub const TCP6: &str = "TCP6";
 
 /// Unknown protocol and address family. Address portion of the header should be ignored.
@@ -244,20 +244,18 @@ impl Default for Addresses {
 impl From<(SocketAddr, SocketAddr)> for Addresses {
     fn from(addresses: (SocketAddr, SocketAddr)) -> Self {
         match addresses {
-            (SocketAddr::V4(source), SocketAddr::V4(destination)) => IPv4::new(
+            (SocketAddr::V4(source), SocketAddr::V4(destination)) => Addresses::Tcp4(IPv4::new(
                 *source.ip(),
                 *destination.ip(),
                 source.port(),
                 destination.port(),
-            )
-            .into(),
-            (SocketAddr::V6(source), SocketAddr::V6(destination)) => IPv6::new(
+            )),
+            (SocketAddr::V6(source), SocketAddr::V6(destination)) => Addresses::Tcp6(IPv6::new(
                 *source.ip(),
                 *destination.ip(),
                 source.port(),
                 destination.port(),
-            )
-            .into(),
+            )),
             _ => Addresses::Unknown,
         }
     }
@@ -277,14 +275,14 @@ impl From<IPv6> for Addresses {
 
 impl<'a> fmt::Display for Header<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.header)
+        f.write_str(self.header)
     }
 }
 
 impl fmt::Display for Addresses {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Unknown => write!(f, "PROXY UNKNOWN\r\n"),
+            Self::Unknown => f.write_str("PROXY UNKNOWN\r\n"),
             Self::Tcp4(a) => write!(
                 f,
                 "PROXY TCP4 {} {} {} {}\r\n",

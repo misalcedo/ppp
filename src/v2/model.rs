@@ -19,7 +19,7 @@ const IPV6_ADDRESSES_BYTES: usize = 36;
 const UNIX_ADDRESSES_BYTES: usize = 216;
 
 /// A proxy protocol version 2 header.
-/// 
+///
 /// ## Examples
 /// ```rust
 /// use ppp::v2::{Addresses, AddressFamily, Command, Header, IPv4, ParseError, Protocol, PROTOCOL_PREFIX, Type, TypeLengthValue, Version};
@@ -28,7 +28,7 @@ const UNIX_ADDRESSES_BYTES: usize = 216;
 ///    0x21, 0x12, 0, 16, 127, 0, 0, 1, 192, 168, 1, 1, 0, 80, 1, 187, 4, 0, 1, 42
 /// ]);
 ///
-/// let addresses: Addresses = IPv4::new([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into(); 
+/// let addresses: Addresses = IPv4::new([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into();
 /// let expected = Header {
 ///    header: header.as_slice(),
 ///    version: Version::Two,
@@ -40,7 +40,7 @@ const UNIX_ADDRESSES_BYTES: usize = 216;
 ///
 /// assert_eq!(actual, expected);
 /// assert_eq!(actual.tlvs().collect::<Vec<Result<TypeLengthValue<'_>, ParseError>>>(), vec![Ok(TypeLengthValue::new(Type::NoOp, &[42]))]);
-/// ``` 
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Header<'a> {
     pub header: &'a [u8],
@@ -81,16 +81,16 @@ pub enum Protocol {
 }
 
 /// The source and destination address information for a given `AddressFamily`.
-/// 
+///
 /// ## Examples
 /// ```rust
 /// use ppp::v2::{Addresses, AddressFamily};
 /// use std::net::SocketAddr;
-/// 
+///
 /// let addresses: Addresses = ("127.0.0.1:80".parse::<SocketAddr>().unwrap(), "192.168.1.1:443".parse::<SocketAddr>().unwrap()).into();
-/// 
+///
 /// assert_eq!(addresses.address_family(), AddressFamily::IPv4);
-/// ``` 
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Addresses {
     Unspecified,
@@ -307,20 +307,18 @@ impl From<AddressFamily> for u16 {
 impl From<(SocketAddr, SocketAddr)> for Addresses {
     fn from(addresses: (SocketAddr, SocketAddr)) -> Self {
         match addresses {
-            (SocketAddr::V4(source), SocketAddr::V4(destination)) => IPv4::new(
+            (SocketAddr::V4(source), SocketAddr::V4(destination)) => Addresses::IPv4(IPv4::new(
                 *source.ip(),
                 *destination.ip(),
                 source.port(),
                 destination.port(),
-            )
-            .into(),
-            (SocketAddr::V6(source), SocketAddr::V6(destination)) => IPv6::new(
+            )),
+            (SocketAddr::V6(source), SocketAddr::V6(destination)) => Addresses::IPv6(IPv6::new(
                 *source.ip(),
                 *destination.ip(),
                 source.port(),
                 destination.port(),
-            )
-            .into(),
+            )),
             _ => Addresses::Unspecified,
         }
     }
@@ -396,7 +394,7 @@ impl<'a, T: Into<u8>> From<(T, &'a [u8])> for TypeLengthValue<'a> {
 
 impl<'a> TypeLengthValue<'a> {
     /// Creates a new instance of a `TypeLengthValue`, where the length is determine by the length of the byte slice.
-   /// No check is done to ensure the byte slice's length fits in a `u16`.
+    /// No check is done to ensure the byte slice's length fits in a `u16`.
     pub fn new<T: Into<u8>>(kind: T, value: &'a [u8]) -> Self {
         TypeLengthValue {
             kind: kind.into(),
