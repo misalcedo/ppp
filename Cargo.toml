@@ -1,21 +1,26 @@
 [package]
 name = "ppp"
 description = "A Proxy Protocol Parser written in Rust. See HAProxy for the protocol specification."
-version = "1.2.2"
+version = "2.0.0"
 authors = ["Miguel D. Salcedo <miguel@salcedo.cc>"]
 edition = "2021"
 license = "Apache-2.0"
 homepage = "https://github.com/misalcedo/ppp"
 repository = "https://github.com/misalcedo/ppp"
-documentation = "https://docs.rs/ppp/1.0.0/ppp/"
+documentation = "https://docs.rs/ppp"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.release]
+lto = true
+debug = true
 
 [dependencies]
-nom = "7"
+thiserror = "1"
 
 [dev-dependencies]
 criterion = "0.3"
+
+[target.'cfg(unix)'.dev-dependencies]
+pprof = { version = "0.4", features = ["criterion", "flamegraph", "protobuf"] }
 
 [[bench]]
 name = "binary"
@@ -23,4 +28,8 @@ harness = false
 
 [[bench]]
 name = "text"
+harness = false
+
+[[bench]]
+name = "v2"
 harness = false

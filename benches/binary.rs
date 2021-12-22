@@ -1,11 +1,10 @@
-#[macro_use]
-extern crate criterion;
+use criterion::{criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion};
 
-use criterion::black_box;
-use criterion::Criterion;
+#[cfg(unix)]
+use pprof::criterion::{Output, PProfProfiler};
 
-use ppp::model::*;
-use ppp::{parse_header, to_bytes};
+use ppp::v2;
 
 fn ipv6_input() -> Vec<u8> {
     let prefix = b"\r\n\r\n\0\r\nQUIT\n";
@@ -37,8 +36,8 @@ fn ipv4_input() -> Vec<u8> {
 
     input.extend_from_slice(prefix);
     input.push(0x21);
-    input.push(0x21);
-    input.extend(&[0, 45]);
+    input.push(0x11);
+    input.extend(&[0, 26]);
     input.extend(&[127, 0, 0, 1]);
     input.extend(&[198, 168, 1, 1]);
     input.extend(&[0, 80]);
@@ -50,52 +49,99 @@ fn ipv4_input() -> Vec<u8> {
     input
 }
 
-fn criterion_benchmark(c: &mut Criterion) {
-    let ipv6 = ipv6_input();
-    let ipv4 = ipv4_input();
+fn benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("PPP Binary");
 
-    c.bench_function("ppp binary IPv6 without TLVs", |b| {
-        b.iter(|| parse_header(black_box(ipv6.as_slice())))
-    });
+    let inputs = [
+        ("IPv4 with TLVs", ipv4_input()),
+        ("IPv6 without TLVs", ipv6_input()),
+    ];
 
-    c.bench_function("ppp binary IPv4 with TLVs", |b| {
-        b.iter(|| parse_header(black_box(ipv4.as_slice())))
-    });
+    for (id, input) in inputs {
+        group.bench_with_input(
+            BenchmarkId::new("v2::Header::try_from", id),
+            input.as_slice(),
+            |b, i| {
+                b.iter(|| v2::Header::try_from(i).unwrap());
+            },
+        );
 
-    c.bench_function("ppp header to bytes binary IPv6 without TLVs", |b| {
-        b.iter(|| {
-            to_bytes(black_box(Header::new(
-                Version::Two,
-                Command::Proxy,
-                Protocol::Stream,
-                vec![],
-                (
-                    [
-                        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF2,
-                    ],
-                    [
-                        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1,
-                    ],
-                    80,
-                    443,
+        group.bench_with_input(
+            BenchmarkId::new("v2::Header::as_bytes", id),
+            &v2::Header::try_from(input.as_slice()).unwrap(),
+            |b, h| {
+                b.iter(|| h.as_bytes());
+            },
+        );
+    }
+
+    let source_address = [
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xF2,
+    ];
+    let destination_address = [
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xF1,
+    ];
+    let addresses =
+        v2::Addresses::IPv6(v2::IPv6::new(source_address, destination_address, 80, 443));
+
+    group.bench_with_input(
+        BenchmarkId::new("v2::Builder::build", "IPv6 with TLVs"),
+        &addresses,
+        |b, a| {
+            b.iter(|| {
+                v2::Builder::new(
+                    v2::Version::Two | v2::Command::Local,
+                    v2::AddressFamily::IPv6 | v2::Protocol::Unspecified,
                 )
-                    .into(),
-            )))
-        })
-    });
+                .write_payload(a)
+                .unwrap()
+                .write_payloads(vec![(v2::Type::NoOp, [0].as_slice())])
+                .unwrap()
+                .write_tlv(v2::Type::NoOp, [42].as_slice())
+                .unwrap()
+                .build()
+                .unwrap()
+            })
+        },
+    );
 
-    c.bench_function("ppp header to bytes binary IPv4 with TLVs", |b| {
-        b.iter(|| {
-            to_bytes(black_box(Header::new(
-                Version::Two,
-                Command::Proxy,
-                Protocol::Stream,
-                vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
-                ([127, 0, 0, 1], [127, 0, 0, 2], 80, 443).into(),
-            )))
-        })
-    });
+    group.bench_with_input(
+        BenchmarkId::new("v2::Builder::build", "IPv6 with TLVs with length"),
+        &addresses,
+        |b, &a| {
+            b.iter(|| {
+                v2::Builder::with_addresses(
+                    v2::Version::Two | v2::Command::Local,
+                    v2::Protocol::Unspecified,
+                    a,
+                )
+                .reserve_capacity(8)
+                .write_payloads([
+                    (v2::Type::NoOp, [0].as_slice()),
+                    (v2::Type::NoOp, [42].as_slice()),
+                ])
+                .unwrap()
+                .build()
+                .unwrap()
+            })
+        },
+    );
+
+    group.finish();
 }
 
-criterion_group!(benches, criterion_benchmark);
+#[cfg(unix)]
+criterion_group! {
+    name = benches;
+    config = {
+        Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
+    };
+    targets = benchmarks
+}
+
+#[cfg(not(unix))]
+criterion_group!(benches, benchmarks);
+
 criterion_main!(benches);

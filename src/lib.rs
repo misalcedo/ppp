@@ -1,312 +1,119 @@
-//! A Proxy Protocol Parser written in Rust using nom.
-//! Supports both text and binary versions of the header.
-//! A general function is provided to parse either version using a single call.
-//! When using the general function, performance depends almost entirely on the type of header.
+//! A Proxy Protocol Parser written in Rust.
+//! Supports both text and binary versions of the header protocol.
 
-use nom::branch::alt;
+mod ip;
 
-use crate::error::ParseError;
-use crate::model::ParseResult;
+pub mod v1;
+pub mod v2;
 
-/// Parsers for the binary representation of HAProxy's proxy protocol header.
-mod binary;
+/// The canonical way to determine when a streamed header should be retried in a streaming context.
+/// The protocol states that servers may choose to support partial headers or to close the connection if the header is not present all at once.
+pub trait PartialResult {
+    /// Tests whether this `Result` is successful or whether the error is terminal.
+    /// A terminal error will not result in a success even with more bytes.
+    /// Retrying with the same -- or more -- input will not change the result.
+    fn is_complete(&self) -> bool {
+        !self.is_incomplete()
+    }
 
-/// Parsers for the text representation of HAProxy's proxy protocol header.
-mod text;
-
-/// Types representing both text and binary versions of HAProxy's proxy protocol header.
-pub mod model;
-
-/// The error type used by the parsers.
-pub mod error;
-
-/// Parses a version 1 header of HAProxy's proxy protocol.
-/// Supports TCP with IPv4 and IPv6 addresses, as well as UNKNOWN address information.
-///
-/// # Examples
-/// Partial
-/// ```rust
-/// assert!(ppp::parse_v1_header(b"PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535").unwrap_err().is_incomplete());
-/// ```
-///
-/// Unknown
-/// ```rust
-/// assert_eq!(ppp::parse_v1_header(b"PROXY UNKNOWN\r\n"), Ok((&[][..], ppp::model::Header::unknown())));
-/// ```
-///
-/// TCP4
-/// ```rust
-/// assert_eq!(ppp::parse_v1_header(b"PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\nHello, World!"), Ok((&b"Hello, World!"[..], ppp::model:: Header::version_1(
-///            ([255, 255, 255, 255], [255, 255, 255, 255], 65535, 65535).into(),
-///        ))));
-/// ```
-///
-/// TCP6
-/// ```rust
-/// assert_eq!(ppp::parse_v1_header(b"PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\nHi!"), Ok((&b"Hi!"[..], ppp::model:: Header::version_1(
-///            (
-///                 [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
-///                 [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
-///                 65535,
-///                 65535
-///             ).into()
-///        ))));
-/// ```
-pub fn parse_v1_header(input: &[u8]) -> ParseResult<&[u8]> {
-    text::parse_v1_header(input).map_err(ParseError::from)
+    /// Tests whether this `Result` is incomplete.
+    /// An action that leads to an incomplete result may have a different result with more bytes.
+    /// Retrying with the same input will not change the result.
+    fn is_incomplete(&self) -> bool;
 }
 
-/// Creates a `String` from a valid Version 1 header.
-/// See the protocol specification for the definition of valid text headers.
-///
-/// # Examples
-/// TCP4
-/// ```rust
-/// # use ppp::model::Header;
-///
-/// let text = "PROXY TCP4 127.0.1.2 192.168.1.101 80 443\r\n";
-/// let header = Header::version_1(([127, 0, 1, 2], [192, 168, 1, 101], 80, 443).into());
-///
-/// assert_eq!(ppp::to_string(header), Ok(String::from(text)));
-/// ```
-///
-/// TCP6
-/// ```rust
-/// # use ppp::model::Header;
-///
-/// let text = "PROXY TCP6 1234:5678:90AB:CDEF:FEDC:BA09:8765:4321 4321:8765:BA09:FEDC:CDEF:90AB:5678:1234 443 65535\r\n";
-/// let header = Header::version_1((
-///     [0x1234, 0x5678, 0x90AB, 0xCDEF, 0xFEDC, 0xBA09, 0x8765, 0x4321],
-///     [0x4321, 0x8765, 0xBA09, 0xFEDC, 0xCDEF, 0x90AB, 0x5678, 0x01234],
-///     443,
-///     65535,
-/// ).into());
-/// assert_eq!(ppp::to_string(header), Ok(String::from(text)));
-/// ```
-///
-/// Invalid Text Header
-/// ```rust
-/// # use ppp::model::{Header, Version, Command, Protocol};
-///
-/// let header = Header::no_address(Version::Two, Command::Proxy, Protocol::Unspecified);
-///
-/// assert!(ppp::to_string(header).is_err());
-///```
-pub fn to_string(header: model::Header) -> Result<String, ()> {
-    text::to_string(header)
+impl<'a, T, E: PartialResult> PartialResult for Result<T, E> {
+    fn is_incomplete(&self) -> bool {
+        match self {
+            Ok(_) => false,
+            Err(error) => error.is_incomplete(),
+        }
+    }
 }
 
-/// Creates a `String` from a valid Version 1 header.
-/// See the protocol specification for the definition of valid text headers.
-///
-/// # Examples
-/// TCP6 with TLVs
-/// ```rust
-/// # use ppp::model::{Header, Tlv, Version, Command, Protocol};
-///
-/// let header = Header::new(
-///                    Version::Two,
-///                    Command::Proxy,
-///                    Protocol::Stream,
-///                    vec![Tlv::new(1, vec![5]), Tlv::new(2, vec![5, 5])],
-///                    (
-///                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF2],
-///                        [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1],
-///                        80,
-///                        443
-///                    )
-///                        .into(),
-///                );
-/// let mut output: Vec<u8> = Vec::with_capacity(12);
-///
-/// output.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
-/// output.push(0x21);
-/// output.push(0x21);
-/// output.extend(&[0, 45]);
-/// output.extend(&[
-///     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-///     0xFF, 0xF2,
-/// ]);
-/// output.extend(&[
-///     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-///     0xFF, 0xF1,
-/// ]);
-/// output.extend(&[0, 80]);
-/// output.extend(&[1, 187]);
-/// output.extend(&[1, 0, 1, 5]);
-/// output.extend(&[2, 0, 2, 5, 5]);
-///
-/// assert_eq!(ppp::to_bytes(header), Ok(output));
-/// ```
-///
-/// Invalid Binary Header
-/// ```rust
-/// # use ppp::model::{Header, Version, Command, Protocol};
-///
-/// let header = Header::unknown();
-///
-/// assert!(ppp::to_bytes(header).is_err());
-///```
-pub fn to_bytes(header: model::Header) -> Result<Vec<u8>, ()> {
-    binary::to_bytes(header)
+impl<'a> PartialResult for v1::ParseError {
+    fn is_incomplete(&self) -> bool {
+        matches!(
+            self,
+            v1::ParseError::Partial
+                | v1::ParseError::MissingPrefix
+                | v1::ParseError::MissingProtocol
+                | v1::ParseError::MissingSourceAddress
+                | v1::ParseError::MissingDestinationAddress
+                | v1::ParseError::MissingSourcePort
+                | v1::ParseError::MissingDestinationPort
+                | v1::ParseError::MissingNewLine
+        )
+    }
 }
 
-/// Parse the first 16 bytes of the protocol header; the only required payload.
-/// The 12 byte signature and 4 bytes used to describe the connection and header information.
-/// The adress portion of the header, as denoted by the last 2 bytes of the required payload, must be present a header with invalid addresses or TLVs (Type-Length-Value) can be determined to be invalid.
-///
-/// # Examples
-/// TCP over IPv6 with some TLVs
-/// ```rust
-/// let mut input: Vec<u8> = Vec::new();
-///
-/// input.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
-/// input.push(0x21);
-/// input.push(0x21);
-/// input.extend(&[0, 45]);
-/// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
-/// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF1]);
-/// input.extend(&[0, 80]);
-/// input.extend(&[1, 187]);
-/// input.extend(&[1, 0, 1, 5]);
-/// input.extend(&[2, 0, 2, 5, 5]);
-/// input.extend(&[1, 1, 1]);
-///
-/// assert_eq!(ppp::parse_v2_header(&input[..]), Ok((&[1, 1, 1][..], ppp::model::Header::new(
-///     ppp::model::Version::Two,
-///     ppp::model::Command::Proxy,
-///     ppp::model::Protocol::Stream,
-///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
-///     (
-///         [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
-///         [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1],
-///         80,
-///         443
-///     ).into(),
-/// ))))
-/// ```
-///
-/// UDP over IPv4 with some TLVs
-/// ```rust
-/// let mut input: Vec<u8> = Vec::new();
-///
-/// input.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
-/// input.push(0x20);
-/// input.push(0x12);
-/// input.extend(&[0, 21]);
-/// input.extend(&[127, 0, 0, 1]);
-/// input.extend(&[192, 168, 1, 1]);
-/// input.extend(&[0, 80]);
-/// input.extend(&[1, 187]);
-/// input.extend(&[1, 0, 1, 5]);
-/// input.extend(&[2, 0, 2, 5, 5]);
-/// input.extend(&[1, 2, 3, 4, 5]);
-///
-/// assert_eq!(ppp::parse_v2_header(&input[..]), Ok((&[1, 2, 3, 4, 5][..], ppp::model::Header::new(
-///     ppp::model::Version::Two,
-///     ppp::model::Command::Local,
-///     ppp::model::Protocol::Datagram,
-///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
-///     ([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into(),
-/// ))))
-/// ```
-///
-/// Stream over Unix with some TLVs
-/// ```rust
-/// let mut input: Vec<u8> = Vec::new();
-///
-/// input.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
-/// input.push(0x20);
-/// input.push(0x31);
-/// input.extend(&[0, 225]);
-/// input.extend(&[0xFFu8; 108][..]);
-/// input.extend(&[0xAAu8; 108][..]);
-/// input.extend(&[1, 0, 1, 5]);
-/// input.extend(&[2, 0, 2, 5, 5]);
-/// input.extend(&[1, 2, 3, 4, 5]);
-///
-/// assert_eq!(ppp::parse_v2_header(&input[..]), Ok((&[1, 2, 3, 4, 5][..], ppp::model::Header::new(
-///     ppp::model::Version::Two,
-///     ppp::model::Command::Local,
-///     ppp::model::Protocol::Stream,
-///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
-///     ([0xFFFFFFFFu32; 27], [0xAAAAAAAAu32; 27]).into(),
-/// ))))
-/// ```
-///
-/// Unspecified protocol over IPv6 with some TLVs
-/// ```rust
-/// let mut input: Vec<u8> = Vec::new();
-///
-/// input.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
-/// input.push(0x21);
-/// input.push(0x20);
-/// input.extend(&[0, 41]);
-/// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
-/// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF1]);
-/// input.extend(&[1, 0, 1, 5]);
-/// input.extend(&[2, 0, 2, 5, 5]);
-/// input.extend(&[42]);
-///
-/// assert_eq!(ppp::parse_v2_header(&input[..]), Ok((&[42][..], ppp::model::Header::new(
-///     ppp::model::Version::Two,
-///     ppp::model::Command::Proxy,
-///     ppp::model::Protocol::Unspecified,
-///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
-///     (
-///         [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
-///         [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1]
-///     ).into()
-/// ))))
-/// ```
-pub fn parse_v2_header(input: &[u8]) -> ParseResult<&[u8]> {
-    binary::parse_v2_header(input).map_err(ParseError::from)
+impl<'a> PartialResult for v1::BinaryParseError {
+    fn is_incomplete(&self) -> bool {
+        match self {
+            v1::BinaryParseError::Parse(error) => error.is_incomplete(),
+            _ => false,
+        }
+    }
 }
 
-/// A parser that can handle both version 1 and version 2 of the proxy protocol header.
+impl<'a> PartialResult for v2::ParseError {
+    fn is_incomplete(&self) -> bool {
+        matches!(
+            self,
+            v2::ParseError::Incomplete(..) | v2::ParseError::Partial(..)
+        )
+    }
+}
+
+/// An enumeration of the supported header version's parse results.
+/// Useful for parsing either version 1 or version 2 of the PROXY protocol.
 ///
-/// # Examples
-/// Partial
+/// ## Examples
 /// ```rust
-/// assert!(ppp::parse_header(b"\r\n").unwrap_err().is_incomplete());
+/// use ppp::{HeaderResult, PartialResult, v1, v2};
+///
+/// let input = "PROXY UNKNOWN\r\n";
+/// let header = HeaderResult::parse(input.as_bytes());
+///
+/// assert_eq!(header, Ok(v1::Header::new(input, v1::Addresses::Unknown)).into());
 /// ```
-///
-/// Version 1 TCP4
-/// ```rust
-/// assert_eq!(ppp::parse_header(b"PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\nHi!"), Ok((&b"Hi!"[..], ppp::model:: Header::version_1(
-///            ([255, 255, 255, 255], [255, 255, 255, 255], 65535, 65535).into(),
-///        ))));
-/// ```
-///
-/// Version 2 TCP over IPv6 with some TLVs
-/// ```rust
-/// let mut input: Vec<u8> = Vec::new();
-///
-/// input.extend_from_slice(b"\r\n\r\n\0\r\nQUIT\n");
-/// input.push(0x21);
-/// input.push(0x21);
-/// input.extend(&[0, 45]);
-/// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
-/// input.extend(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF1]);
-/// input.extend(&[0, 80]);
-/// input.extend(&[1, 187]);
-/// input.extend(&[1, 0, 1, 5]);
-/// input.extend(&[2, 0, 2, 5, 5]);
-/// input.extend(&[42]);
-///
-/// assert_eq!(ppp::parse_v2_header(&input[..]), Ok((&[42][..], ppp::model::Header::new(
-///     ppp::model::Version::Two,
-///     ppp::model::Command::Proxy,
-///     ppp::model::Protocol::Stream,
-///     vec![ppp::model::Tlv::new(1, vec![5]), ppp::model::Tlv::new(2, vec![5, 5])],
-///     (
-///         [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF],
-///         [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFF1],
-///         80,
-///         443
-///     ).into(),
-/// ))))
-/// ```
-pub fn parse_header(input: &[u8]) -> ParseResult<&[u8]> {
-    alt((binary::parse_v2_header, text::parse_v1_header))(input).map_err(ParseError::from)
+#[derive(Debug, PartialEq)]
+pub enum HeaderResult<'a> {
+    V1(Result<v1::Header<'a>, v1::BinaryParseError>),
+    V2(Result<v2::Header<'a>, v2::ParseError>),
+}
+
+impl<'a> From<Result<v1::Header<'a>, v1::BinaryParseError>> for HeaderResult<'a> {
+    fn from(result: Result<v1::Header<'a>, v1::BinaryParseError>) -> Self {
+        HeaderResult::V1(result)
+    }
+}
+
+impl<'a> From<Result<v2::Header<'a>, v2::ParseError>> for HeaderResult<'a> {
+    fn from(result: Result<v2::Header<'a>, v2::ParseError>) -> Self {
+        HeaderResult::V2(result)
+    }
+}
+
+impl<'a> PartialResult for HeaderResult<'a> {
+    fn is_incomplete(&self) -> bool {
+        match self {
+            Self::V1(result) => result.is_incomplete(),
+            Self::V2(result) => result.is_incomplete(),
+        }
+    }
+}
+
+impl<'a> HeaderResult<'a> {
+    /// Parses a PROXY protocol version 2 `Header`.
+    /// If the input is not a valid version 2 `Header`, attempts to parse a version 1 `Header`.  
+    pub fn parse(input: &'a [u8]) -> HeaderResult<'a> {
+        let header = v2::Header::try_from(input);
+
+        if header.is_complete() && header.is_err() {
+            v1::Header::try_from(input).into()
+        } else {
+            header.into()
+        }
+    }
 }
