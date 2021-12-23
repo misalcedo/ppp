@@ -20,7 +20,7 @@ thiserror = "1"
 criterion = "0.3"
 
 [target.'cfg(unix)'.dev-dependencies]
-pprof = { version = "0.4", features = ["criterion", "flamegraph", "protobuf"] }
+pprof = { version = "0.6", features = ["criterion", "flamegraph", "protobuf"] }
 
 [[bench]]
 name = "binary"
