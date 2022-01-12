@@ -18,6 +18,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          override: true
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v1.3.0
       - name: Publish to Crates.io

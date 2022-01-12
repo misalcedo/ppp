@@ -1,6 +1,12 @@
 name: Compatability
 
-on: [ push ]
+on:
+  push:
+    paths: [ "src/**", "examples/**", "benches/**", "Cargo.toml"]
+  workflow_dispatch: {}
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   build:
@@ -8,37 +14,24 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [linux, beta, nightly, macos, windows]
-        include:
-          - build: linux
-            os: ubuntu-latest
-            toolchain: stable
-          - build: beta
-            os: ubuntu-latest
-            toolchain: beta
-          - build: nightly
-            os: ubuntu-latest
-            toolchain: nightly
-          - build: macos
-            os: macos-latest
-            toolchain: stable
-          - build: windows
-            os: windows-latest
-            toolchain: stable
+        toolchain: [stable, beta, nightly]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        features: ["--features default", "--no-default-features", "--all-features"]
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
+          override: true
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v1.3.0
       - uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all-features
+          args: --verbose --release ${{ matrix.features }}
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --release --all-features
+          args: --verbose --release ${{ matrix.features }}
         env:
           RUST_BACKTRACE: 1

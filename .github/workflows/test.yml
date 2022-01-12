@@ -1,6 +1,9 @@
 name: Test
 
-on: [ push ]
+on: [ push, workflow_dispatch ]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   test:
@@ -11,6 +14,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          override: true
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v1.3.0
       - name: Build
