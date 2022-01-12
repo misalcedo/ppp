@@ -1,6 +1,6 @@
 name: Linters
 
-on: [pull_request]
+on: [ push ]
 
 jobs:
   rustfmt:
@@ -8,13 +8,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install Rust
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v1.3.0
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fix
+          args: --all-features
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+      - name: Upload formatting and lint fixes
         run: |
-          rustup update stable
-          rustup default stable
-          rustup component add rustfmt
-          rustup component add clippy
-      - name: Check Formatting
-        run: cargo fmt --all -- --check
-      - name: Check for idiomatic code
-        run: cargo clippy --all --all-features -- -D warnings
+          if [ -n "$(git status --porcelain)" ]
+          then
+            git config user.name "Upload lint fixes from CI"
+            git config user.email ""
+            git add .
+            git commit -m "Automically fix lint failures and format code."
+            git push
+          fi
