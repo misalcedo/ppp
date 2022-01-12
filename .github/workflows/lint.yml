@@ -7,7 +7,7 @@ env:
 
 jobs:
   lint:
-    name: Formatter
+    name: Lint & Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -18,11 +18,13 @@ jobs:
           override: true
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v1.3.0
-      - uses: actions-rs/cargo@v1
+      - name: Lint
+        uses: actions-rs/cargo@v1
         with:
           command: fix
           args: --all-features
-      - uses: actions-rs/cargo@v1
+      - name: Format
+        uses: actions-rs/cargo@v1
         with:
           command: fmt
       - name: Upload formatting and lint fixes

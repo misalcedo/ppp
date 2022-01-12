@@ -25,11 +25,13 @@ jobs:
           override: true
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v1.3.0
-      - uses: actions-rs/cargo@v1
+      - name: Build
+        uses: actions-rs/cargo@v1
         with:
           command: build
           args: --verbose --release ${{ matrix.features }}
-      - uses: actions-rs/cargo@v1
+      - name: Test
+        uses: actions-rs/cargo@v1
         with:
           command: test
           args: --verbose --release ${{ matrix.features }}
