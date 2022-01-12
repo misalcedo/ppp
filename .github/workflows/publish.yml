@@ -1,0 +1,27 @@
+name: Publish to Crates.io
+
+on:
+  push:
+    tags:
+      - v*
+  workflow_dispatch: {}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  publish:
+    name: Pulish to crates.io
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Publish to Crates.io
+        run: |
+          cargo login ${{ secrets.CRATES_IO_TOKEN }}
+          cargo publish
