@@ -234,7 +234,10 @@ impl<'a> TypeLengthValues<'a> {
 
 impl<'a> From<&'a [u8]> for TypeLengthValues<'a> {
     fn from(bytes: &'a [u8]) -> Self {
-        TypeLengthValues { bytes: bytes.into(), offset: 0 }
+        TypeLengthValues {
+            bytes: bytes.into(),
+            offset: 0,
+        }
     }
 }
 
