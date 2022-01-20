@@ -119,20 +119,11 @@ pub struct Unix {
     pub destination: [u8; 108],
 }
 
-/// An `Iterator` of `TypeLengthValue`s.
-#[derive(Debug, PartialEq)]
+/// An `Iterator` of `TypeLengthValue`s stored in a byte slice.
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct TypeLengthValues<'a> {
-    bytes: Cow<'a, [u8]>,
+    bytes: &'a [u8],
     offset: usize,
-}
-
-impl Clone for TypeLengthValues<'_> {
-    fn clone(&self) -> TypeLengthValues<'static> {
-        TypeLengthValues {
-            bytes: Cow::Owned(self.bytes.to_vec()),
-            offset: self.offset,
-        }
-    }
 }
 
 /// A Type-Length-Value payload.
