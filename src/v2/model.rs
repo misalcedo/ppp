@@ -120,17 +120,35 @@ pub struct Unix {
 }
 
 /// An `Iterator` of `TypeLengthValue`s.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct TypeLengthValues<'a> {
-    bytes: &'a [u8],
+    bytes: Cow<'a, [u8]>,
     offset: usize,
 }
 
+impl Clone for TypeLengthValues<'_> {
+    fn clone(&self) -> TypeLengthValues<'static> {
+        TypeLengthValues {
+            bytes: Cow::Owned(self.bytes.to_vec()),
+            offset: self.offset,
+        }
+    }
+}
+
 /// A Type-Length-Value payload.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct TypeLengthValue<'a> {
     pub kind: u8,
-    pub value: &'a [u8],
+    pub value: Cow<'a, [u8]>,
+}
+
+impl Clone for TypeLengthValue<'_> {
+    fn clone(&self) -> TypeLengthValue<'static> {
+        TypeLengthValue {
+            kind: self.kind,
+            value: Cow::Owned(self.value.to_vec()),
+        }
+    }
 }
 
 /// Supported types for `TypeLengthValue` payloads.
@@ -205,7 +223,7 @@ impl<'a> Header<'a> {
     /// An `Iterator` of `TypeLengthValue`s.
     pub fn tlvs(&self) -> TypeLengthValues<'_> {
         TypeLengthValues {
-            bytes: self.tlv_bytes(),
+            bytes: self.tlv_bytes().into(),
             offset: 0,
         }
     }
@@ -219,13 +237,13 @@ impl<'a> Header<'a> {
 impl<'a> TypeLengthValues<'a> {
     /// The underlying byte slice of the `TypeLengthValue`s portion of the `Header` payload.
     pub fn as_bytes(&self) -> &[u8] {
-        self.bytes
+        self.bytes.as_ref()
     }
 }
 
 impl<'a> From<&'a [u8]> for TypeLengthValues<'a> {
     fn from(bytes: &'a [u8]) -> Self {
-        TypeLengthValues { bytes, offset: 0 }
+        TypeLengthValues { bytes: bytes.into(), offset: 0 }
     }
 }
 
@@ -257,7 +275,7 @@ impl<'a> Iterator for TypeLengthValues<'a> {
 
         Some(Ok(TypeLengthValue {
             kind: tlv_type,
-            value: &remaining[MINIMUM_TLV_LENGTH..tlv_length],
+            value: Cow::Borrowed(&remaining[MINIMUM_TLV_LENGTH..tlv_length]),
         }))
     }
 }
@@ -400,7 +418,7 @@ impl<'a, T: Into<u8>> From<(T, &'a [u8])> for TypeLengthValue<'a> {
     fn from((kind, value): (T, &'a [u8])) -> Self {
         TypeLengthValue {
             kind: kind.into(),
-            value,
+            value: value.into(),
         }
     }
 }
@@ -411,7 +429,7 @@ impl<'a> TypeLengthValue<'a> {
     pub fn new<T: Into<u8>>(kind: T, value: &'a [u8]) -> Self {
         TypeLengthValue {
             kind: kind.into(),
-            value,
+            value: value.into(),
         }
     }
 
