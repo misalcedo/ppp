@@ -78,6 +78,7 @@ impl<'a> PartialResult for v2::ParseError {
 /// assert_eq!(header, Ok(v1::Header::new(input, v1::Addresses::Unknown)).into());
 /// ```
 #[derive(Debug, PartialEq)]
+#[must_use = "this `HeaderResult` may contain a V1 or V2 `Err` variant, which should be handled"]
 pub enum HeaderResult<'a> {
     V1(Result<v1::Header<'a>, v1::BinaryParseError>),
     V2(Result<v2::Header<'a>, v2::ParseError>),

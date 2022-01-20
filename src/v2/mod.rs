@@ -14,6 +14,7 @@ pub use model::{
     Unix, Version, PROTOCOL_PREFIX,
 };
 use model::{MINIMUM_LENGTH, MINIMUM_TLV_LENGTH};
+use std::borrow::Cow;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
 /// Masks the right 4-bits so only the left 4-bits are present.
@@ -142,7 +143,7 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
         );
 
         Ok(Header {
-            header,
+            header: Cow::Borrowed(header),
             version,
             command,
             protocol,
@@ -170,7 +171,7 @@ mod tests {
         input.extend([1, 187]);
 
         let expected = Header {
-            header: input.as_slice(),
+            header: Cow::Borrowed(input.as_slice()),
             version: Version::Two,
             command: Command::Proxy,
             protocol: Protocol::Stream,
@@ -204,7 +205,7 @@ mod tests {
         input.extend([1, 187]);
 
         let expected = Header {
-            header: input.as_slice(),
+            header: input.as_slice().into(),
             version: Version::Two,
             command: Command::Proxy,
             protocol: Protocol::Unspecified,
@@ -236,7 +237,7 @@ mod tests {
         input.extend([127, 0, 0, 2]);
 
         let expected = Header {
-            header: input.as_slice(),
+            header: Cow::Borrowed(input.as_slice()),
             version: Version::Two,
             command: Command::Proxy,
             protocol: Protocol::Stream,
@@ -357,7 +358,7 @@ mod tests {
 
         let header = &input[..input.len() - 1];
         let expected = Header {
-            header,
+            header: header.into(),
             version: Version::Two,
             command: Command::Proxy,
             protocol: Protocol::Stream,
@@ -401,7 +402,7 @@ mod tests {
         input.extend([3, 0, 2, 5, 5]);
 
         let expected = Header {
-            header: input.as_slice(),
+            header: input.as_slice().into(),
             version: Version::Two,
             command: Command::Proxy,
             protocol: Protocol::Stream,
@@ -457,7 +458,7 @@ mod tests {
 
         let header = &input[..input.len() - 5];
         let expected = Header {
-            header,
+            header: header.into(),
             version: Version::Two,
             command: Command::Proxy,
             protocol: Protocol::Stream,
@@ -505,7 +506,7 @@ mod tests {
 
         let header = &input[..input.len() - 5];
         let expected = Header {
-            header,
+            header: header.into(),
             version: Version::Two,
             command: Command::Proxy,
             protocol: Protocol::Unspecified,
@@ -555,7 +556,7 @@ mod tests {
         input.extend([3, 0, 2, 5, 5]);
 
         let expected = Header {
-            header: input.as_slice(),
+            header: input.as_slice().into(),
             version: Version::Two,
             command: Command::Proxy,
             protocol: Protocol::Unspecified,
@@ -596,7 +597,8 @@ mod tests {
         input.extend([1, 187]);
         input.extend([1, 0, 1]);
 
-        let mut tlvs = Header::try_from(input.as_slice()).unwrap().tlvs();
+        let header = Header::try_from(input.as_slice()).unwrap();
+        let mut tlvs = header.tlvs();
 
         assert_eq!(tlvs.next().unwrap(), Err(ParseError::InvalidTLV(1, 1)));
         assert_eq!(tlvs.next(), None);
@@ -652,7 +654,7 @@ mod tests {
 
         let header = &input[..input.len() - 2];
         let expected = Header {
-            header,
+            header: header.into(),
             version: Version::Two,
             command: Command::Local,
             protocol: Protocol::Datagram,
@@ -685,7 +687,7 @@ mod tests {
         input.extend([0xbb, 1]);
 
         let expected = Header {
-            header: input.as_slice(),
+            header: input.as_slice().into(),
             version: Version::Two,
             command: Command::Local,
             protocol: Protocol::Datagram,
