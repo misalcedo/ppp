@@ -140,7 +140,7 @@ impl<'a> WriteToHeader for TypeLengthValue<'a> {
 
         writer.write_all([self.kind].as_slice())?;
         writer.write_all((self.value.len() as u16).to_be_bytes().as_slice())?;
-        writer.write_all(self.value)?;
+        writer.write_all(self.value.as_ref())?;
 
         Ok(MINIMUM_TLV_LENGTH + self.value.len())
     }

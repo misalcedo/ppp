@@ -6,16 +6,17 @@ const RESPONSE: &str = "HTTP/1.1 200 OK\r\n\r\n";
 
 fn handle_connection(mut client: TcpStream) -> io::Result<()> {
     let mut buffer = [0; 512];
-    let mut read = client.read(&mut buffer)?;
-
-    let mut header = HeaderResult::parse(&buffer[..read]);
-
-    while header.is_incomplete() {
-        println!("Incomplete header. Read {} bytes so far.", read);
-
+    let mut read = 0;
+    let header = loop {
         read += client.read(&mut buffer[read..])?;
-        header = HeaderResult::parse(&buffer[..read]);
-    }
+
+        let header = HeaderResult::parse(&buffer[..read]);
+        if header.is_complete() {
+            break header;
+        }
+
+        println!("Incomplete header. Read {} bytes so far.", read);
+    };
 
     match header {
         HeaderResult::V1(Ok(header)) => println!("V1 Header: {}", header),

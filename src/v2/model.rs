@@ -1,5 +1,6 @@
 use crate::ip::{IPv4, IPv6};
 use crate::v2::error::ParseError;
+use std::borrow::Cow;
 use std::fmt;
 use std::net::SocketAddr;
 use std::ops::BitOr;
@@ -30,7 +31,7 @@ const UNIX_ADDRESSES_BYTES: usize = 216;
 ///
 /// let addresses: Addresses = IPv4::new([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into();
 /// let expected = Header {
-///    header: header.as_slice(),
+///    header: header.as_slice().into(),
 ///    version: Version::Two,
 ///    command: Command::Proxy,
 ///    protocol: Protocol::Datagram,
@@ -41,13 +42,25 @@ const UNIX_ADDRESSES_BYTES: usize = 216;
 /// assert_eq!(actual, expected);
 /// assert_eq!(actual.tlvs().collect::<Vec<Result<TypeLengthValue<'_>, ParseError>>>(), vec![Ok(TypeLengthValue::new(Type::NoOp, &[42]))]);
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Header<'a> {
-    pub header: &'a [u8],
+    pub header: Cow<'a, [u8]>,
     pub version: Version,
     pub command: Command,
     pub protocol: Protocol,
     pub addresses: Addresses,
+}
+
+impl Clone for Header<'_> {
+    fn clone(&self) -> Header<'static> {
+        Header {
+            header: Cow::Owned(self.header.to_vec()),
+            version: self.version,
+            command: self.command,
+            protocol: self.protocol,
+            addresses: self.addresses,
+        }
+    }
 }
 
 /// The supported `Version`s for binary headers.
@@ -106,7 +119,7 @@ pub struct Unix {
     pub destination: [u8; 108],
 }
 
-/// An `Iterator` of `TypeLengthValue`s.
+/// An `Iterator` of `TypeLengthValue`s stored in a byte slice.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct TypeLengthValues<'a> {
     bytes: &'a [u8],
@@ -114,10 +127,19 @@ pub struct TypeLengthValues<'a> {
 }
 
 /// A Type-Length-Value payload.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct TypeLengthValue<'a> {
     pub kind: u8,
-    pub value: &'a [u8],
+    pub value: Cow<'a, [u8]>,
+}
+
+impl Clone for TypeLengthValue<'_> {
+    fn clone(&self) -> TypeLengthValue<'static> {
+        TypeLengthValue {
+            kind: self.kind,
+            value: Cow::Owned(self.value.to_vec()),
+        }
+    }
 }
 
 /// Supported types for `TypeLengthValue` payloads.
@@ -180,39 +202,42 @@ impl<'a> Header<'a> {
     }
 
     /// The bytes of the address portion of the payload.
-    pub fn address_bytes(&self) -> &'a [u8] {
+    pub fn address_bytes(&self) -> &[u8] {
         &self.header[MINIMUM_LENGTH..self.address_bytes_end()]
     }
 
     /// The bytes of the `TypeLengthValue` portion of the payload.
-    pub fn tlv_bytes(&self) -> &'a [u8] {
+    pub fn tlv_bytes(&self) -> &[u8] {
         &self.header[self.address_bytes_end()..]
     }
 
     /// An `Iterator` of `TypeLengthValue`s.
-    pub fn tlvs(&self) -> TypeLengthValues<'a> {
+    pub fn tlvs(&self) -> TypeLengthValues<'_> {
         TypeLengthValues {
-            bytes: self.tlv_bytes(),
+            bytes: self.tlv_bytes().into(),
             offset: 0,
         }
     }
 
     /// The underlying byte slice this `Header` is built on.
-    pub fn as_bytes(&self) -> &'a [u8] {
-        self.header
+    pub fn as_bytes(&self) -> &[u8] {
+        self.header.as_ref()
     }
 }
 
 impl<'a> TypeLengthValues<'a> {
     /// The underlying byte slice of the `TypeLengthValue`s portion of the `Header` payload.
-    pub fn as_bytes(&self) -> &'a [u8] {
-        self.bytes
+    pub fn as_bytes(&self) -> &[u8] {
+        self.bytes.as_ref()
     }
 }
 
 impl<'a> From<&'a [u8]> for TypeLengthValues<'a> {
     fn from(bytes: &'a [u8]) -> Self {
-        TypeLengthValues { bytes, offset: 0 }
+        TypeLengthValues {
+            bytes: bytes.into(),
+            offset: 0,
+        }
     }
 }
 
@@ -244,7 +269,7 @@ impl<'a> Iterator for TypeLengthValues<'a> {
 
         Some(Ok(TypeLengthValue {
             kind: tlv_type,
-            value: &remaining[MINIMUM_TLV_LENGTH..tlv_length],
+            value: Cow::Borrowed(&remaining[MINIMUM_TLV_LENGTH..tlv_length]),
         }))
     }
 }
@@ -387,7 +412,7 @@ impl<'a, T: Into<u8>> From<(T, &'a [u8])> for TypeLengthValue<'a> {
     fn from((kind, value): (T, &'a [u8])) -> Self {
         TypeLengthValue {
             kind: kind.into(),
-            value,
+            value: value.into(),
         }
     }
 }
@@ -398,7 +423,7 @@ impl<'a> TypeLengthValue<'a> {
     pub fn new<T: Into<u8>>(kind: T, value: &'a [u8]) -> Self {
         TypeLengthValue {
             kind: kind.into(),
-            value,
+            value: value.into(),
         }
     }
 

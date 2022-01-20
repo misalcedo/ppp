@@ -9,6 +9,7 @@ pub use crate::ip::{IPv4, IPv6};
 pub use error::{BinaryParseError, ParseError};
 pub use model::{Addresses, Header, SEPARATOR, TCP4, TCP6, UNKNOWN};
 pub use model::{PROTOCOL_PREFIX, PROTOCOL_SUFFIX};
+use std::borrow::Cow;
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::str::{from_utf8, FromStr};
 
@@ -93,7 +94,10 @@ fn parse_header(header: &str) -> Result<Header, ParseError> {
         return Err(ParseError::InvalidSuffix);
     }
 
-    Ok(Header { header, addresses })
+    Ok(Header {
+        header: Cow::Borrowed(header),
+        addresses,
+    })
 }
 
 /// Parses the addresses and ports from a PROXY protocol header for IPv4 and IPv6.
@@ -175,6 +179,19 @@ impl FromStr for Addresses {
     }
 }
 
+impl FromStr for Header<'static> {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let header = Header::try_from(s)?;
+
+        Ok(Header {
+            header: Cow::Owned(header.header.to_string()),
+            addresses: header.addresses,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,7 +213,7 @@ mod tests {
         let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r\n";
         let expected = Header::new(text, Addresses::new_tcp4(ip, ip, port, port));
 
-        assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text), Ok(expected.clone()));
         assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
@@ -210,7 +227,7 @@ mod tests {
             Addresses::new_tcp4(ip, ip, port, port),
         );
 
-        assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text), Ok(expected.clone()));
         assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
@@ -281,7 +298,7 @@ mod tests {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\nHi!";
         let expected = Header::new("PROXY TCP6 ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n", Addresses::new_tcp6(ip, ip, port, port));
 
-        assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text), Ok(expected.clone()));
         assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
@@ -296,7 +313,7 @@ mod tests {
             Addresses::new_tcp6(short_ip, ip, port, port),
         );
 
-        assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text), Ok(expected.clone()));
         assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
@@ -340,7 +357,7 @@ mod tests {
         let text = "PROXY TCP6 ffff::ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
         let expected = Header::new(text, Addresses::new_tcp6(short_ip, ip, port, port));
 
-        assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text), Ok(expected.clone()));
         assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
@@ -352,7 +369,7 @@ mod tests {
         let text = "PROXY TCP6 ffff:ffff:ffff:ffff::ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
         let expected = Header::new(text, Addresses::new_tcp6(short_ip, ip, port, port));
 
-        assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text), Ok(expected.clone()));
         assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
@@ -364,7 +381,7 @@ mod tests {
         let text = "PROXY TCP6 :: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
         let expected = Header::new(text, Addresses::new_tcp6(short_ip, ip, port, port));
 
-        assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text), Ok(expected.clone()));
         assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
@@ -376,7 +393,7 @@ mod tests {
         let text = "PROXY TCP6 ffff:: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
         let expected = Header::new(text, Addresses::new_tcp6(short_ip, ip, port, port));
 
-        assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text), Ok(expected.clone()));
         assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
@@ -401,7 +418,7 @@ mod tests {
         let text = "PROXY UNKNOWN ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff 65535 65535\r\n";
         let expected = Header::new(text, Addresses::Unknown);
 
-        assert_eq!(Header::try_from(text), Ok(expected));
+        assert_eq!(Header::try_from(text), Ok(expected.clone()));
         assert_eq!(Header::try_from(text.as_bytes()), Ok(expected));
     }
 
