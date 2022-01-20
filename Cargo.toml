@@ -13,6 +13,9 @@ documentation = "https://docs.rs/ppp"
 lto = true
 debug = true
 
+[features]
+default = []
+
 [dependencies]
 thiserror = "1"
 
