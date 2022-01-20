@@ -42,25 +42,13 @@ const UNIX_ADDRESSES_BYTES: usize = 216;
 /// assert_eq!(actual, expected);
 /// assert_eq!(actual.tlvs().collect::<Vec<Result<TypeLengthValue<'_>, ParseError>>>(), vec![Ok(TypeLengthValue::new(Type::NoOp, &[42]))]);
 /// ```
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Header<'a> {
     pub header: Cow<'a, [u8]>,
     pub version: Version,
     pub command: Command,
     pub protocol: Protocol,
     pub addresses: Addresses,
-}
-
-impl Clone for Header<'_> {
-    fn clone(&self) -> Header<'static> {
-        Header {
-            header: Cow::Owned(self.header.to_vec()),
-            version: self.version,
-            command: self.command,
-            protocol: self.protocol,
-            addresses: self.addresses,
-        }
-    }
 }
 
 /// The supported `Version`s for binary headers.
@@ -127,19 +115,10 @@ pub struct TypeLengthValues<'a> {
 }
 
 /// A Type-Length-Value payload.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TypeLengthValue<'a> {
     pub kind: u8,
     pub value: Cow<'a, [u8]>,
-}
-
-impl Clone for TypeLengthValue<'_> {
-    fn clone(&self) -> TypeLengthValue<'static> {
-        TypeLengthValue {
-            kind: self.kind,
-            value: Cow::Owned(self.value.to_vec()),
-        }
-    }
 }
 
 /// Supported types for `TypeLengthValue` payloads.
@@ -173,6 +152,17 @@ impl<'a> fmt::Display for Header<'a> {
 }
 
 impl<'a> Header<'a> {
+    /// Creates an owned clone of this [`Header`].
+    pub fn to_owned(&self) -> Header<'static> {
+        Header {
+            header: Cow::Owned(self.header.to_vec()),
+            version: self.version,
+            command: self.command,
+            protocol: self.protocol,
+            addresses: self.addresses,
+        }
+    }
+
     /// The length of this `Header`'s payload in bytes.
     pub fn length(&self) -> usize {
         self.header[MINIMUM_LENGTH..].len()
@@ -418,6 +408,14 @@ impl<'a, T: Into<u8>> From<(T, &'a [u8])> for TypeLengthValue<'a> {
 }
 
 impl<'a> TypeLengthValue<'a> {
+    /// Creates an owned clone of this [`TypeLengthValue`].
+    pub fn to_owned(&self) -> TypeLengthValue<'static> {
+        TypeLengthValue {
+            kind: self.kind,
+            value: Cow::Owned(self.value.to_vec()),
+        }
+    }
+
     /// Creates a new instance of a `TypeLengthValue`, where the length is determine by the length of the byte slice.
     /// No check is done to ensure the byte slice's length fits in a `u16`.
     pub fn new<T: Into<u8>>(kind: T, value: &'a [u8]) -> Self {
