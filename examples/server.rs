@@ -6,16 +6,7 @@ const RESPONSE: &str = "HTTP/1.1 200 OK\r\n\r\n";
 
 fn handle_connection(mut client: TcpStream) -> io::Result<()> {
     let mut buffer = [0; 512];
-    let mut read = client.read(&mut buffer)?;
-
-    let mut header = HeaderResult::parse(&buffer[..read]);
-
-    while header.is_incomplete() {
-        println!("Incomplete header. Read {} bytes so far.", read);
-
-        read += client.read(&mut buffer[read..])?;
-        header = HeaderResult::parse(&buffer[..read]);
-    }
+    let header = parse_header(&mut client, &mut buffer)?;
 
     match header {
         HeaderResult::V1(Ok(header)) => println!("V1 Header: {}", header),
@@ -30,6 +21,19 @@ fn handle_connection(mut client: TcpStream) -> io::Result<()> {
 
     client.write_all(RESPONSE.as_bytes())?;
     client.flush()
+}
+
+fn parse_header<'a>(client: &mut TcpStream, buffer: &'a mut [u8]) -> io::Result<HeaderResult<'a>> {
+    loop {
+        let read = client.read(buffer)?;
+        let header = HeaderResult::parse(&buffer[..read]);
+
+        if header.is_complete() {
+            return Ok(header);
+        }
+
+        println!("Incomplete header. Read {} bytes so far.", read);
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

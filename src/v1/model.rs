@@ -1,6 +1,7 @@
 //! The data model to represent the test PROXY protocol header.
 
 use crate::ip::{IPv4, IPv6};
+use std::borrow::Cow;
 use std::fmt;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
@@ -92,17 +93,26 @@ pub const SEPARATOR: char = ' ';
 ///
 /// assert_eq!(Err(ParseError::InvalidProtocol), "PROXY tcp4\r\n".parse::<Addresses>());
 /// ```
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Header<'a> {
-    pub header: &'a str,
+    pub header: Cow<'a, str>,
     pub addresses: Addresses,
+}
+
+impl Clone for Header<'_> {
+    fn clone(&self) -> Header<'static> {
+        Header {
+            header: Cow::Owned(self.header.to_string()),
+            addresses: self.addresses,
+        }
+    }
 }
 
 impl<'a> Header<'a> {
     /// Creates a new `Header` with the given addresses and a reference to the original input.
     pub fn new<H: Into<&'a str>, A: Into<Addresses>>(header: H, addresses: A) -> Self {
         Header {
-            header: header.into(),
+            header: Cow::Borrowed(header.into()),
             addresses: addresses.into(),
         }
     }
@@ -113,7 +123,7 @@ impl<'a> Header<'a> {
     }
 
     /// The source and destination addresses portion of this `Header`.
-    pub fn addresses_str(&self) -> &'a str {
+    pub fn addresses_str(&self) -> &str {
         let start = PROTOCOL_PREFIX.len() + SEPARATOR.len_utf8() + self.protocol().len();
         let end = self.header.len() - PROTOCOL_SUFFIX.len();
         let addresses = &self.header[start..end];
@@ -275,7 +285,7 @@ impl From<IPv6> for Addresses {
 
 impl<'a> fmt::Display for Header<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.header)
+        f.write_str(self.header.as_ref())
     }
 }
 

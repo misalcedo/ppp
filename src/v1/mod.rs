@@ -9,6 +9,7 @@ pub use crate::ip::{IPv4, IPv6};
 pub use error::{BinaryParseError, ParseError};
 pub use model::{Addresses, Header, SEPARATOR, TCP4, TCP6, UNKNOWN};
 pub use model::{PROTOCOL_PREFIX, PROTOCOL_SUFFIX};
+use std::borrow::Cow;
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::str::{from_utf8, FromStr};
 
@@ -93,7 +94,10 @@ fn parse_header(header: &str) -> Result<Header, ParseError> {
         return Err(ParseError::InvalidSuffix);
     }
 
-    Ok(Header { header, addresses })
+    Ok(Header {
+        header: Cow::Borrowed(header),
+        addresses,
+    })
 }
 
 /// Parses the addresses and ports from a PROXY protocol header for IPv4 and IPv6.
