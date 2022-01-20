@@ -179,6 +179,19 @@ impl FromStr for Addresses {
     }
 }
 
+impl FromStr for Header<'static> {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let header = Header::try_from(s)?;
+
+        Ok(Header {
+            header: Cow::Owned(header.header.to_string()),
+            addresses: header.addresses,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
