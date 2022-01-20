@@ -162,7 +162,7 @@ impl<'a> Header<'a> {
             addresses: self.addresses,
         }
     }
-    
+
     /// The length of this `Header`'s payload in bytes.
     pub fn length(&self) -> usize {
         self.header[MINIMUM_LENGTH..].len()
