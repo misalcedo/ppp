@@ -93,19 +93,10 @@ pub const SEPARATOR: char = ' ';
 ///
 /// assert_eq!(Err(ParseError::InvalidProtocol), "PROXY tcp4\r\n".parse::<Addresses>());
 /// ```
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Header<'a> {
     pub header: Cow<'a, str>,
     pub addresses: Addresses,
-}
-
-impl Clone for Header<'_> {
-    fn clone(&self) -> Header<'static> {
-        Header {
-            header: Cow::Owned(self.header.to_string()),
-            addresses: self.addresses,
-        }
-    }
 }
 
 impl<'a> Header<'a> {
@@ -114,6 +105,14 @@ impl<'a> Header<'a> {
         Header {
             header: Cow::Borrowed(header.into()),
             addresses: addresses.into(),
+        }
+    }
+
+    /// Creates an owned clone of this [`Header`].
+    pub fn to_owned(&self) -> Header<'static> {
+        Header {
+            header: Cow::Owned::<'static>(self.header.to_string()),
+            addresses: self.addresses,
         }
     }
 
