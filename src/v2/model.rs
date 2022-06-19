@@ -124,18 +124,18 @@ pub struct TypeLengthValue<'a> {
 /// Supported types for `TypeLengthValue` payloads.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Type {
-    ALPN = 1,
+    ALPN = 0x01,
     Authority,
     CRC32C,
     NoOp,
     UniqueId,
-    SSL = 20,
+    SSL = 0x20,
     SSLVersion,
     SSLCommonName,
     SSLCipher,
     SSLSignatureAlgorithm,
     SSLKeyAlgorithm,
-    NetworkNamespace = 30,
+    NetworkNamespace = 0x30,
 }
 
 impl<'a> fmt::Display for Header<'a> {
