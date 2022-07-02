@@ -501,7 +501,7 @@ mod tests {
         input.extend(source_address);
         input.extend(destination_address);
         input.extend([2, 0, 2, 5, 5]);
-        input.extend([30, 0, 1, 5]);
+        input.extend([48, 0, 1, 5]);
         input.extend([1, 0, 2, 5, 5]);
 
         let header = &input[..input.len() - 5];
@@ -530,7 +530,7 @@ mod tests {
         assert_eq!(actual.length(), 225);
         assert_eq!(actual.address_family(), AddressFamily::Unix);
         assert_eq!(actual.address_bytes(), expected_address_bytes.as_slice());
-        assert_eq!(actual.tlv_bytes(), &[2, 0, 2, 5, 5, 30, 0, 1, 5]);
+        assert_eq!(actual.tlv_bytes(), &[2, 0, 2, 5, 5, 48, 0, 1, 5]);
         assert_eq!(actual.as_bytes(), header);
     }
 
