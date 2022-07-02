@@ -335,12 +335,12 @@ mod tests {
         assert_eq!(
             Header::try_from(text),
             Err(ParseError::InvalidDestinationAddress(
-                "".parse::<Ipv4Addr>().unwrap_err()
+                "".parse::<Ipv6Addr>().unwrap_err()
             ))
         );
         assert_eq!(
             Header::try_from(text.as_bytes()),
-            Err(ParseError::InvalidDestinationAddress("".parse::<Ipv4Addr>().unwrap_err()).into())
+            Err(ParseError::InvalidDestinationAddress("".parse::<Ipv6Addr>().unwrap_err()).into())
         );
     }
 

@@ -538,7 +538,7 @@ mod tests {
     fn build_ipv4_with_nested_tlv() {
         let mut expected = Vec::from(PROTOCOL_PREFIX);
         expected.extend([
-            0x21, 0x12, 0, 20, 127, 0, 0, 1, 192, 168, 1, 1, 0, 80, 1, 187, 20, 0, 5, 0, 0, 0, 0, 0,
+            0x21, 0x12, 0, 20, 127, 0, 0, 1, 192, 168, 1, 1, 0, 80, 1, 187, 0x20, 0, 5, 0, 0, 0, 0, 0,
         ]);
 
         let addresses: Addresses = IPv4::new([127, 0, 0, 1], [192, 168, 1, 1], 80, 443).into();
@@ -606,7 +606,7 @@ mod tests {
         expected.extend([0x20, 0x31, 0, 216]);
         expected.extend(source_address);
         expected.extend(destination_address);
-        expected.extend([20, 0, 0]);
+        expected.extend([0x20, 0, 0]);
 
         let header = Builder::new(
             Version::Two | Command::Local,
