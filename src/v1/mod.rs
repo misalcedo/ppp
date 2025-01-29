@@ -10,6 +10,7 @@ pub use error::{BinaryParseError, ParseError};
 pub use model::{Addresses, Header, SEPARATOR, TCP4, TCP6, UNKNOWN};
 pub use model::{PROTOCOL_PREFIX, PROTOCOL_SUFFIX};
 use std::borrow::Cow;
+use std::cmp::min;
 use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::str::{from_utf8, FromStr};
 
@@ -147,7 +148,7 @@ impl<'a> TryFrom<&'a str> for Header<'a> {
 
     fn try_from(input: &'a str) -> Result<Self, Self::Error> {
         let length = match input.find(CARRIAGE_RETURN) {
-            Some(suffix) => suffix + PROTOCOL_SUFFIX.len(),
+            Some(suffix) => min(suffix + PROTOCOL_SUFFIX.len(), input.len()),
             None if input.len() >= MAX_LENGTH => return Err(ParseError::HeaderTooLong),
             None => input.len(),
         };
@@ -161,7 +162,7 @@ impl<'a> TryFrom<&'a [u8]> for Header<'a> {
 
     fn try_from(input: &'a [u8]) -> Result<Self, Self::Error> {
         let length = match input.iter().position(|&c| CARRIAGE_RETURN == (c as char)) {
-            Some(suffix) => suffix + PROTOCOL_SUFFIX.len(),
+            Some(suffix) => min(suffix + PROTOCOL_SUFFIX.len(), input.len()),
             None if input.len() >= MAX_LENGTH => return Err(ParseError::HeaderTooLong.into()),
             None => input.len(),
         };
@@ -693,6 +694,32 @@ mod tests {
         assert_eq!(
             Header::try_from(text.as_bytes()),
             Err(ParseError::InvalidPrefix.into())
+        );
+    }
+
+    #[test]
+    fn parse_partial_newline() {
+        let text = "PROXY TCP4 255.255.255.255 255.255.255.255 65535 65535\r";
+        assert_eq!(
+            Header::try_from(text).unwrap_err(),
+            ParseError::MissingNewLine
+        );
+        assert_eq!(
+            Header::try_from(text.as_bytes()).unwrap_err(),
+            ParseError::MissingNewLine.into()
+        );
+    }
+
+    #[test]
+    fn parse_invalid_prefix_partial_newline() {
+        let text = "abc\r";
+        assert_eq!(
+            Header::try_from(text).unwrap_err(),
+            ParseError::InvalidPrefix
+        );
+        assert_eq!(
+            Header::try_from(text.as_bytes()).unwrap_err(),
+            ParseError::InvalidPrefix.into()
         );
     }
 }
