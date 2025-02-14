@@ -10,7 +10,7 @@ See [HAProxy](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt) for t
 Add the following to your `Cargo.toml` as a dependency:
 
 ```toml
-ppp = "2.0"
+ppp = "2.3"
 ```
 
 Then, you can use either the text or binary versions of the protocol.
