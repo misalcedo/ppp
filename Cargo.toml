@@ -22,8 +22,6 @@ thiserror = "2"
 [dev-dependencies]
 criterion = "0.8"
 
-[target.'cfg(unix)'.dev-dependencies]
-pprof = { version = "0.11", features = ["criterion", "flamegraph", "protobuf-codec"] }
 
 [[bench]]
 name = "binary"

@@ -1,9 +1,6 @@
 use criterion::{criterion_group, criterion_main};
 use criterion::{BenchmarkId, Criterion};
 
-#[cfg(unix)]
-use pprof::criterion::{Output, PProfProfiler};
-
 use ppp::v1;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -74,16 +71,6 @@ fn benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
-#[cfg(unix)]
-criterion_group! {
-    name = benches;
-    config = {
-        Criterion::default().with_profiler(PProfProfiler::new(100, Output::Protobuf))
-    };
-    targets = benchmarks
-}
-
-#[cfg(not(unix))]
 criterion_group!(benches, benchmarks);
 
 criterion_main!(benches);
